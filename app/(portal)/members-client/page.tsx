@@ -209,20 +209,35 @@ export default function MembersClientPage() {
       });
     }
 
-    setSelectedAccount((current) =>
-      current
-        ? {
-            ...current,
-            account: {
-              ...current.account,
-              name: trimmedName,
-              role: trimmedRole,
-              email: trimmedEmail,
-              avatar: getInitials(trimmedName),
-            },
-          }
-        : current
-    );
+    setSelectedAccount((current) => {
+      if (!current) {
+        return current;
+      }
+
+      if (current.kind === "client") {
+        return {
+          kind: "client",
+          account: {
+            ...current.account,
+            name: trimmedName,
+            role: trimmedRole,
+            email: trimmedEmail,
+            avatar: getInitials(trimmedName),
+          },
+        };
+      }
+
+      return {
+        kind: "member",
+        account: {
+          ...current.account,
+          name: trimmedName,
+          role: trimmedRole,
+          email: trimmedEmail,
+          avatar: getInitials(trimmedName),
+        },
+      };
+    });
     setEditAccountOpen(false);
     setEditError("");
   };

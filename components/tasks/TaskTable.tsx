@@ -77,6 +77,11 @@ export function TaskTable() {
     status: "In Progress" as TaskStatus,
   });
 
+  const assigneeOptions = React.useMemo(() =>
+    (project?.contacts ?? []).filter((contact) => contact.team === "Starlink Team"),
+    [project?.contacts]
+  );
+
   const selectedStage = timelineItems.find((item) => item.id === stageParam) ?? null;
 
   // Get tasks for the selected stage
@@ -127,6 +132,13 @@ export function TaskTable() {
       return;
     }
     setFinishOpen(true);
+  };
+
+  const handleReopenStage = () => {
+    if (!selectedStage) {
+      return;
+    }
+    updateTimelineStatus(selectedStage.id, "In Progress");
   };
 
   const handleConfirmFinish = () => {
@@ -208,6 +220,11 @@ export function TaskTable() {
                   {isStageComplete ? "Stage completed" : "Finish timeline stage"}
                 </Button>
               )}
+              {canEdit && isStageComplete && (
+                <Button variant="secondary" onClick={handleReopenStage}>
+                  Reopen stage
+                </Button>
+              )}
               {canEdit && (
                 <Dialog open={open} onOpenChange={setOpen}>
                   <DialogTrigger asChild>
@@ -232,11 +249,21 @@ export function TaskTable() {
                         value={form.category}
                         onChange={(event) => setForm({ ...form, category: event.target.value })}
                       />
-                      <Input
-                        placeholder="Assignee"
+                      <Select
                         value={form.assignee}
-                        onChange={(event) => setForm({ ...form, assignee: event.target.value })}
-                      />
+                        onValueChange={(value) => setForm({ ...form, assignee: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assigneeOptions.map((member) => (
+                            <SelectItem key={member.email} value={member.name}>
+                              {member.name} - {member.role}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <Select
                         value={form.status}
                         onValueChange={(value) => setForm({ ...form, status: value as TaskStatus })}

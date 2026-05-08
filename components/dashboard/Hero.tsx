@@ -7,6 +7,15 @@ import { Card, CardContent } from "@/components/ui/card";
 export function Hero() {
   const { project, role } = useAppContext();
   const projectSummary = project?.summary;
+  const timelineItems = project?.timelineItems ?? [];
+  const completedCount = timelineItems.filter((item) => item.status === "Completed").length;
+  const progress = timelineItems.length
+    ? Math.round((completedCount / timelineItems.length) * 100)
+    : 0;
+  const nextMilestone =
+    timelineItems.find((item) => item.status !== "Completed")?.title ??
+    timelineItems[0]?.title ??
+    "Kickoff";
 
   if (!projectSummary) {
     return null;
@@ -42,12 +51,12 @@ export function Hero() {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>Progress</span>
-            <span>{projectSummary.progress}% complete</span>
+            <span>{progress}% complete</span>
           </div>
           <div className="h-4 w-full overflow-hidden rounded-full bg-secondary/50 shadow-inner">
             <div
-              className="relative h-full rounded-full bg-gradient-to-r from-primary/80 to-primary shadow-[0_0_15px_rgba(var(--primary),0.5)] transition-all duration-1000 ease-out"
-              style={{ width: `${projectSummary.progress}%` }}
+              className="relative h-full rounded-full bg-linear-to-r from-primary/80 to-primary shadow-[0_0_15px_rgba(var(--primary),0.5)] transition-all duration-1000 ease-out"
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
@@ -59,23 +68,15 @@ export function Hero() {
         )}
 
         {role === "admin" && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
             <div>
               <p className="text-xs text-muted-foreground">Start date</p>
               <p className="text-sm font-semibold">{projectSummary.startDate}</p>
             </div>
-            {/* <div>
-              <p className="text-xs text-muted-foreground">Target date</p>
-              <p className="text-sm font-semibold">{projectSummary.targetDate}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Budget</p>
-              <p className="text-sm font-semibold">{projectSummary.budget}</p>
-            </div>
             <div>
               <p className="text-xs text-muted-foreground">Next milestone</p>
-              <p className="text-sm font-semibold">{projectSummary.nextMilestone}</p>
-            </div> */}
+              <p className="text-sm font-semibold">{nextMilestone}</p>
+            </div>
           </div>
         )}
       </CardContent>

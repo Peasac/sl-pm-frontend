@@ -17,7 +17,7 @@ export function Sidebar() {
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <Image
-            src="/Group 7.svg"
+            src="/starlink.svg"
             alt="Starlink"
             width={140}
             height={31}

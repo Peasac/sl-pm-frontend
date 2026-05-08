@@ -77,6 +77,7 @@ export default function NewProjectPage() {
   const { addProject, canEdit, clientAccounts, starlinkMembers } = useAppContext();
   const [projectName, setProjectName] = React.useState("");
   const [companyLogo, setCompanyLogo] = React.useState("");
+  const [companyLogoFile, setCompanyLogoFile] = React.useState<File | null>(null);
   const [startDate, setStartDate] = React.useState("");
   const [clientMode, setClientMode] = React.useState<"existing" | "new">("existing");
   const [selectedClientEmail, setSelectedClientEmail] = React.useState(
@@ -90,8 +91,14 @@ export default function NewProjectPage() {
     starlinkMembers[1]?.email ?? "",
   ]);
   const [timelineItems, setTimelineItems] = React.useState<DraftTimelineItem[]>(initialTimelineItems);
+  const [formError, setFormError] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  const selectedMembers = starlinkMembers.filter((member) =>
+  const selectableMembers = starlinkMembers.filter(
+    (member) => member.role.toLowerCase() !== "admin"
+  );
+
+  const selectedMembers = selectableMembers.filter((member) =>
     selectedMemberEmails.includes(member.email)
   );
 
@@ -155,26 +162,54 @@ export default function NewProjectPage() {
     );
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canEdit) {
       return;
     }
 
+    setFormError("");
+    setIsSubmitting(true);
+
     const projectTitle = projectName.trim();
     const clientTitle = clientName.trim();
-    const emailValue = clientEmail.trim();
+    const emailValue = clientEmail.trim().toLowerCase();
     const passwordValue = clientPassword.trim();
 
     if (!projectTitle || !startDate) {
+      setFormError("Project name and start date are required.");
+      setIsSubmitting(false);
       return;
     }
 
     if (clientMode === "new" && (!clientTitle || !emailValue || !passwordValue)) {
+      setFormError("Client name, email, and password are required for a new account.");
+      setIsSubmitting(false);
       return;
     }
 
+    if (clientMode === "new") {
+      const exists = clientAccounts.some(
+        (account) => account.email.toLowerCase() === emailValue.toLowerCase()
+      );
+      const memberExists = starlinkMembers.some(
+        (member) => member.email.toLowerCase() === emailValue.toLowerCase()
+      );
+      if (exists) {
+        setFormError("That client email already exists. Choose another email.");
+        setIsSubmitting(false);
+        return;
+      }
+      if (memberExists) {
+        setFormError("That email is already used by a member.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     if (clientMode === "existing" && !selectedClientEmail) {
+      setFormError("Select an existing client account.");
+      setIsSubmitting(false);
       return;
     }
 
@@ -183,13 +218,43 @@ export default function NewProjectPage() {
     );
 
     if (!timeline.length) {
+      setFormError("Add at least one timeline milestone.");
+      setIsSubmitting(false);
       return;
     }
 
-    addProject({
+    let uploadedLogoUrl = companyLogo.trim();
+
+    if (companyLogoFile) {
+      try {
+        const token = window.localStorage.getItem("slpm:token");
+        const formData = new FormData();
+        formData.append("file", companyLogoFile);
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/uploads/company-logo`, {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+        });
+
+        const payload = await response.json();
+        if (!response.ok || !payload.success) {
+          setFormError(payload.message || "Failed to upload company logo.");
+          setIsSubmitting(false);
+          return;
+        }
+        uploadedLogoUrl = payload.data.url;
+      } catch (error) {
+        setFormError("Failed to upload company logo.");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    await addProject({
       name: projectTitle,
       startDate,
-      companyLogo: companyLogo.trim() || undefined,
+      companyLogo: uploadedLogoUrl || undefined,
       client:
         clientMode === "existing"
           ? {
@@ -207,6 +272,7 @@ export default function NewProjectPage() {
     });
 
     router.push("/overview");
+    setIsSubmitting(false);
   };
 
   return (
@@ -245,13 +311,20 @@ export default function NewProjectPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company-logo">Company logo URL</Label>
+                  <Label htmlFor="company-logo">Company logo</Label>
                   <Input
                     id="company-logo"
-                    value={companyLogo}
-                    onChange={(event) => setCompanyLogo(event.target.value)}
-                    placeholder="https://example.com/logo.png"
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      setCompanyLogoFile(file);
+                      setCompanyLogo(file ? file.name : "");
+                    }}
                   />
+                  {companyLogo && (
+                    <p className="text-xs text-muted-foreground">Selected: {companyLogo}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="start-date">Start date</Label>
@@ -338,7 +411,7 @@ export default function NewProjectPage() {
                   </p>
                 </div>
                 <div className="grid gap-3 md:grid-cols-2">
-                  {starlinkMembers.map((member) => {
+                  {selectableMembers.map((member) => {
                     const checked = selectedMemberEmails.includes(member.email);
 
                     return (
@@ -460,8 +533,11 @@ export default function NewProjectPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Button type="submit" disabled={!canEdit}>
-                  Create project
+                {formError && (
+                  <p className="text-sm text-red-400">{formError}</p>
+                )}
+                <Button type="submit" disabled={!canEdit || isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create project"}
                 </Button>
                 <Button type="button" variant="outline" asChild>
                   <Link href="/overview">Cancel</Link>

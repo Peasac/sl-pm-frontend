@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
@@ -30,21 +31,30 @@ export default function LoginPage() {
       return;
     }
 
-    const matchedAccount = authAccounts.find(
-      (account) =>
-        account.email.toLowerCase() === normalizedEmail &&
-        account.password === enteredPassword
-    );
-
-    if (matchedAccount) {
-      setUser({
-        name: matchedAccount.name,
-        email: matchedAccount.email,
-        role: matchedAccount.role,
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password: enteredPassword }),
       });
-      router.push("/overview");
-    } else {
-      setError("Incorrect email or password. Please try again.");
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        window.localStorage.setItem("slpm:token", data.token);
+        setUser({
+            id: data.user.id,
+          name: data.user.name,
+          email: data.user.email,
+          role: data.user.role as any,
+            title: data.user.title,
+        });
+        router.push("/overview");
+      } else {
+        setError(data.message || "Incorrect email or password. Please try again.");
+      }
+    } catch (err) {
+      setError("Failed to connect to the backend server. Make sure it is running on port 3001.");
     }
     setLoading(false);
   }
@@ -98,9 +108,14 @@ export default function LoginPage() {
           <div className="relative z-10 flex h-full w-full flex-col justify-between gap-11 rounded-3xl p-10">
             {/* Logo */}
             <div className="relative z-10 flex items-center gap-3">
-              <span className="text-white font-bold text-[30px] tracking-tight">
-                Starlink Information Technology
-              </span>
+              <Image
+                          src="/starlink.svg"
+                          alt="Starlink"
+                          width={140}
+                          height={31}
+                          className="h-[50px] w-auto"
+                          priority
+                        />
             </div>
 
             {/* Spacer for justify-between */}

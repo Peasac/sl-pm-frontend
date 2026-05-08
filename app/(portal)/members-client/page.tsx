@@ -59,6 +59,8 @@ export default function MembersClientPage() {
   const [clientName, setClientName] = React.useState("");
   const [clientEmail, setClientEmail] = React.useState("");
   const [clientPassword, setClientPassword] = React.useState("");
+  const [memberError, setMemberError] = React.useState("");
+  const [clientError, setClientError] = React.useState("");
   const [selectedAccount, setSelectedAccount] = React.useState<SelectedAccount | null>(null);
   const [editAccountOpen, setEditAccountOpen] = React.useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = React.useState(false);
@@ -82,15 +84,27 @@ export default function MembersClientPage() {
 
   const handleAddMember = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setMemberError("");
 
     if (!memberName.trim() || !memberRole.trim() || !memberEmail.trim() || !memberPassword.trim()) {
+      setMemberError("Fill in all member fields before adding.");
+      return;
+    }
+
+    const normalizedEmail = memberEmail.trim().toLowerCase();
+    if (starlinkMembers.some((member) => member.email.toLowerCase() === normalizedEmail)) {
+      setMemberError("That member email already exists.");
+      return;
+    }
+    if (clientAccounts.some((client) => client.email.toLowerCase() === normalizedEmail)) {
+      setMemberError("That email is already used by a client.");
       return;
     }
 
     addStarlinkMember({
       name: memberName.trim(),
       role: memberRole.trim(),
-      email: memberEmail.trim(),
+      email: normalizedEmail,
       team: "Starlink Team",
       avatar: getInitials(memberName.trim()),
       password: memberPassword.trim(),
@@ -104,15 +118,27 @@ export default function MembersClientPage() {
 
   const handleAddClient = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setClientError("");
 
     if (!clientName.trim() || !clientEmail.trim() || !clientPassword.trim()) {
+      setClientError("Fill in all client fields before adding.");
+      return;
+    }
+
+    const normalizedEmail = clientEmail.trim().toLowerCase();
+    if (clientAccounts.some((client) => client.email.toLowerCase() === normalizedEmail)) {
+      setClientError("That client email already exists.");
+      return;
+    }
+    if (starlinkMembers.some((member) => member.email.toLowerCase() === normalizedEmail)) {
+      setClientError("That email is already used by a member.");
       return;
     }
 
     addClientAccount({
       name: clientName.trim(),
       role: "Client Contact",
-      email: clientEmail.trim(),
+      email: normalizedEmail,
       team: "Client Team",
       avatar: getInitials(clientName.trim()),
       password: clientPassword.trim(),
@@ -452,6 +478,9 @@ export default function MembersClientPage() {
                     />
                   </div>
                 </div>
+                {memberError && (
+                  <p className="text-sm text-red-400">{memberError}</p>
+                )}
                 <Button type="submit">Add member</Button>
               </form>
             </CardContent>
@@ -498,6 +527,9 @@ export default function MembersClientPage() {
                     />
                   </div>
                 </div>
+                {clientError && (
+                  <p className="text-sm text-red-400">{clientError}</p>
+                )}
                 <Button type="submit">Add client</Button>
               </form>
             </CardContent>

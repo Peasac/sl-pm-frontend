@@ -1,9 +1,11 @@
 export type Role = "admin" | "client" | "member";
 
 export type User = {
+  id?: string;
   name: string;
   email: string;
   role: Role;
+  title?: string;
 };
 
 export type ProjectSummary = {

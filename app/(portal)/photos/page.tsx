@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { useAppContext } from "@/components/providers/AppProvider";
+import { PhotoViewer } from "@/components/photos/PhotoViewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,131 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TaskMediaItem, TaskMediaType, TaskMediaVariant } from "@/lib/types";
+import type { TaskMediaItem, TaskMediaVariant } from "@/lib/types";
 
 const mediaVariantOptions: TaskMediaVariant[] = ["before", "after", "other"];
-
-const resolveMediaType = (file: File): TaskMediaType =>
-  file.type.startsWith("video/") ? "video" : "image";
-
-function ImageCanvasDialog({ media, onClose }: { media: TaskMediaItem | null, onClose: () => void }) {
-  const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const imageRef = React.useRef<HTMLImageElement>(null);
-  const [isDrawing, setIsDrawing] = React.useState(false);
-  const [color, setColor] = React.useState("#ef4444");
-  
-  React.useEffect(() => {
-    if (!media || media.type !== "image" || !canvasRef.current || !imageRef.current) return;
-    
-    // Clear canvas when media changes
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }, [media]);
-  
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-    
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    setIsDrawing(true);
-  };
-  
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
-    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-    
-    ctx.lineTo(x, y);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.stroke();
-  };
-  
-  const stopDrawing = () => {
-    setIsDrawing(false);
-  };
-  
-  const clearCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
-  
-  if (!media) return null;
-  
-  return (
-    <Dialog open={!!media} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl max-h-[95vh] flex flex-col p-6">
-        <DialogHeader>
-          <DialogTitle>View and Annotate</DialogTitle>
-          <DialogDescription>
-            {media.label}
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex items-center gap-4 py-2">
-           <div className="flex items-center gap-2">
-             <span className="text-sm font-medium">Pen Color:</span>
-             <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-8 h-8 cursor-pointer rounded-md border border-border" />
-           </div>
-           <Button variant="outline" size="sm" onClick={clearCanvas}>Clear Annotations</Button>
-        </div>
-        
-        <div className="relative flex-1 min-h-0 overflow-auto bg-black/5 rounded-xl border border-border flex items-center justify-center p-4">
-          <div className="relative inline-block max-w-full">
-            <img 
-              ref={imageRef} 
-              src={media.url} 
-              alt="Zoomed" 
-              className="max-w-full max-h-[65vh] object-contain block pointer-events-none select-none" 
-              onLoad={(e) => {
-                 if (canvasRef.current) {
-                   canvasRef.current.width = e.currentTarget.naturalWidth;
-                   canvasRef.current.height = e.currentTarget.naturalHeight;
-                 }
-              }}
-            />
-            <canvas 
-              ref={canvasRef} 
-              className="absolute top-0 left-0 w-full h-full cursor-crosshair touch-none"
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-            />
-          </div>
-        </div>
-        
-        <DialogFooter className="mt-4">
-          <Button variant="secondary" onClick={onClose}>Close</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function PhotosPageContent() {
   const { project, tasks, taskMedia, addTaskMedia, canUpload, role, memberName } = useAppContext();
   const timelineItems = project?.timelineItems ?? [];
   const searchParams = useSearchParams();
-  const router = useRouter();
   const pathname = usePathname();
   const stageParam = searchParams.get("stage") ?? "";
   const taskParam = searchParams.get("task") ?? "";
@@ -180,7 +64,8 @@ function PhotosPageContent() {
       : timelineItems;
 
   const [activeTaskId, setActiveTaskId] = React.useState<string | null>(null);
-  const [zoomedMedia, setZoomedMedia] = React.useState<TaskMediaItem | null>(null);
+  const [viewerMedia, setViewerMedia] = React.useState<{ taskId: string; mediaId: string; url: string; label: string } | null>(null);
+  const [savedMediaUrls, setSavedMediaUrls] = React.useState<Record<string, string>>({});
   const [isUploadDialogOpen, setIsUploadDialogOpen] = React.useState(false);
   const [mediaForm, setMediaForm] = React.useState({
     variant: "before" as TaskMediaVariant,
@@ -201,9 +86,15 @@ function PhotosPageContent() {
   }, [taskParam]);
 
   const activeTask = tasks.find((task) => task.id === activeTaskId) ?? taskFromParam ?? null;
-  const mediaItems = activeTask
-    ? taskMedia.filter((item) => item.taskId === activeTask.id)
-    : [];
+  const mediaItems = React.useMemo(
+    () =>
+      activeTask
+        ? taskMedia
+            .filter((item) => item.taskId === activeTask.id)
+            .map((item) => ({ ...item, url: savedMediaUrls[item.id] ?? item.url }))
+        : [],
+    [activeTask, taskMedia, savedMediaUrls]
+  );
   const groupedMedia = React.useMemo(() => {
     const groups = new Map<
       string,
@@ -231,14 +122,16 @@ function PhotosPageContent() {
     if (selectedStage) {
       params.set("stage", selectedStage.id);
     }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextUrl = `${pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", nextUrl);
     setActiveTaskId(taskId);
   };
 
   const handleCloseDialog = () => {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("task");
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const nextUrl = `${pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", nextUrl);
     setActiveTaskId(null);
     setIsUploadDialogOpen(false);
   };
@@ -262,10 +155,9 @@ function PhotosPageContent() {
     selectedFiles.forEach((file) => {
       addTaskMedia({
         taskId: activeTask.id,
-        type: resolveMediaType(file),
         variant: uploadVariant,
-        url: URL.createObjectURL(file),
         label: uploadLabel.trim(),
+        file,
       });
     });
 
@@ -279,7 +171,7 @@ function PhotosPageContent() {
     setIsUploadDialogOpen(false);
   };
 
-  const renderMediaPreview = (media: TaskMediaItem) => {
+  const renderMediaPreview = (media: TaskMediaItem, taskId: string) => {
     if (media.type === "video") {
       return (
         <video
@@ -295,7 +187,7 @@ function PhotosPageContent() {
         src={media.url}
         alt={media.label}
         className="h-40 w-full rounded-lg border border-border object-cover cursor-pointer hover:opacity-80 transition-opacity"
-        onClick={() => setZoomedMedia(media)}
+        onClick={() => setViewerMedia({ taskId, mediaId: media.id, url: media.url, label: media.label })}
       />
     );
   };
@@ -491,7 +383,7 @@ function PhotosPageContent() {
                           <div className="space-y-3">
                             {group.before.map((media) => (
                               <div key={media.id} className="space-y-2">
-                                {renderMediaPreview(media)}
+                                {renderMediaPreview(media, activeTask?.id || "")}
                                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                                   <Badge variant="outline">{media.type}</Badge>
                                   <span>{media.label}</span>
@@ -513,7 +405,7 @@ function PhotosPageContent() {
                           <div className="space-y-3">
                             {group.after.map((media) => (
                               <div key={media.id} className="space-y-2">
-                                {renderMediaPreview(media)}
+                                {renderMediaPreview(media, activeTask?.id || "")}
                                 <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                                   <Badge variant="outline">{media.type}</Badge>
                                   <span>{media.label}</span>
@@ -536,7 +428,7 @@ function PhotosPageContent() {
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                           {group.other.map((media) => (
                             <div key={media.id} className="space-y-2">
-                              {renderMediaPreview(media)}
+                              {renderMediaPreview(media, activeTask?.id || "")}
                               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                                 <Badge variant="outline">{media.type}</Badge>
                                 <span>{media.label}</span>
@@ -665,7 +557,23 @@ function PhotosPageContent() {
         </DialogContent>
       </Dialog>
       
-      <ImageCanvasDialog media={zoomedMedia} onClose={() => setZoomedMedia(null)} />
+      {viewerMedia && (
+        <PhotoViewer
+          src={viewerMedia.url}
+          alt={viewerMedia.label}
+          projectId={project?.id ?? ""}
+          taskId={viewerMedia.taskId}
+          mediaId={viewerMedia.mediaId}
+          onSave={async (imageUrl) => {
+            setSavedMediaUrls((prev) => ({
+              ...prev,
+              [viewerMedia.mediaId]: imageUrl,
+            }));
+            setViewerMedia((prev) => (prev ? { ...prev, url: imageUrl } : prev));
+          }}
+          onClose={() => setViewerMedia(null)}
+        />
+      )}
     </div>
   );
 }

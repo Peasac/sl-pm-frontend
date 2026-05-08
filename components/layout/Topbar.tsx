@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronDown, LogIn } from "lucide-react";
+import { ChevronDown, LogIn, Bell } from "lucide-react";
 import * as React from "react";
 import { createPortal } from "react-dom";
 
 import { portalNavItems } from "@/components/layout/navigation";
+import { useNotifications } from "@/hooks/useNotifications";
 import { useAppContext } from "@/components/providers/AppProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,7 @@ const getInitials = (value: string) =>
     .slice(0, 2) || "SL";
 
 function ProfileMenu() {
-  const { user, role, projects } = useAppContext();
+  const { user, role, projects, setUser } = useAppContext();
   const [isOpen, setIsOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
   const buttonRef = React.useRef<HTMLButtonElement | null>(null);
@@ -145,7 +146,9 @@ function ProfileMenu() {
             className="w-full" 
             onClick={() => {
               setIsOpen(false);
-              // Clear any auth state here if applicable
+              window.localStorage.removeItem("slpm:token");
+              window.localStorage.removeItem("slpm:user");
+              setUser(null);
               window.location.href = "/login";
             }}
           >
@@ -181,6 +184,146 @@ function ProfileMenu() {
   );
 }
 
+function NotificationBell() {
+  const { notifications, unreadCount, markAsRead, refresh } = useNotifications();
+  const [isOpen, setIsOpen] = React.useState(false);
+  const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+  const panelRef = React.useRef<HTMLDivElement | null>(null);
+  const [panelStyle, setPanelStyle] = React.useState<React.CSSProperties | null>(null);
+
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setPanelStyle(null);
+      return;
+    }
+
+    const button = buttonRef.current;
+    if (!button) return;
+
+    const updatePosition = () => {
+      const rect = button.getBoundingClientRect();
+      const width = 360;
+      let left = rect.right - width;
+      if (left < 8) left = rect.left;
+      setPanelStyle({
+        position: "fixed",
+        top: Math.round(rect.bottom + 10),
+        left: Math.round(left),
+        width,
+        zIndex: 9999,
+      });
+    };
+
+    updatePosition();
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [isOpen]);
+
+  const panel = (
+    <div ref={panelRef} className="rounded-2xl border border-border bg-card shadow-lg">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold">Notifications</p>
+          <p className="text-xs text-muted-foreground">{unreadCount} unread</p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={() => {
+          setIsOpen(false);
+          refresh();
+        }}>
+          Refresh
+        </Button>
+      </div>
+
+      <div className="max-h-105 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="px-4 py-6 text-sm text-muted-foreground">No notifications yet.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {notifications.map((notification) => (
+              <button
+                key={notification._id}
+                type="button"
+                onClick={async () => {
+                  await markAsRead(notification._id);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-3 transition hover:bg-secondary/50",
+                  !notification.isRead && "bg-secondary/30"
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{notification.title}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{notification.message}</p>
+                  </div>
+                  {!notification.isRead && (
+                    <span className="mt-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card transition hover:bg-secondary/80"
+        aria-label="Notifications"
+        aria-expanded={isOpen}
+      >
+        <Bell className="h-5 w-5 text-muted-foreground" />
+        {unreadCount > 0 && (
+          <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && panelStyle && createPortal(
+        <div style={panelStyle}>
+          {panel}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+
 export function Topbar() {
   const pathname = usePathname();
   const { user, role, projects, activeProjectId, setActiveProjectId } = useAppContext();
@@ -197,8 +340,8 @@ export function Topbar() {
           <h1 className="text-xl font-semibold">{titleMap[pathname] ?? "Portal"}</h1>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* <Badge variant={role === "admin" ? "primary" : "outline"}>{roleLabel}</Badge> */}
+        <div className="flex items-center gap-4">
+          <NotificationBell />
           <ProfileMenu />
         </div>
       </div>

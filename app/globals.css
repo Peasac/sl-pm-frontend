@@ -86,3 +86,15 @@ body {
     animation: none;
   }
 }
+
+/* Timeline styles used by Overview timeline */
+.timeline-line {
+  background: linear-gradient(180deg, rgba(34,211,238,0.14) 0%, rgba(34,211,238,0.06) 40%, rgba(34,211,238,0.02) 100%);
+  box-shadow: 0 0 18px -8px rgba(34,211,238,0.6);
+}
+
+.timeline-node {
+  background: linear-gradient(180deg, #22d3ee, #06b6d4);
+  box-shadow: 0 0 18px -4px rgba(34,211,238,0.45);
+  border: 1px solid rgba(255,255,255,0.06);
+}

@@ -1,0 +1,21 @@
+version: 1
+applications:
+  - appRoot: .
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+      artifacts:
+        # Amplify will serve the built Next.js app. For SSR/Edge features Amplify supports Next.js
+        # but this basic config works for static/SSG/ISR outputs.
+        baseDirectory: .next
+        files:
+          - '**/*'
+      cache:
+        paths:
+          - node_modules/**
+    platform: javascript

@@ -5,7 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export function StatsCards() {
   const { project, role } = useAppContext();
-  const overviewStats = project?.overviewStats ?? [];
+  const timelineItems = project?.timelineItems ?? [];
+  const completedCount = timelineItems.filter((item) => item.status === "Completed").length;
+  const inProgressCount = timelineItems.filter((item) => item.status === "In Progress").length;
+  const pendingCount = timelineItems.filter((item) => item.status === "Pending").length;
+  const overviewStats = [
+    { label: "Completed", value: completedCount, detail: "Milestones" },
+    { label: "In Progress", value: inProgressCount, detail: "Active streams" },
+    { label: "Pending", value: pendingCount, detail: "Approvals" },
+  ];
 
   if (role !== "admin") {
     return null;

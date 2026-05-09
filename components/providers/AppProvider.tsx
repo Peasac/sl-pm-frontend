@@ -988,8 +988,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           : currentUser
       );
+
+      const token = window.localStorage.getItem("slpm:token");
+      if (token && API_BASE) {
+        // Find the user ID from the currently logged in user to update
+        const currentUserId = user?.email === currentEmail ? user?.id : undefined;
+        if (currentUserId) {
+          fetch(`${API_BASE}/users/${currentUserId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              name: details.name,
+              email: details.email,
+              role: details.role,
+            }),
+          }).catch((error) => console.error("Failed to update profile", error));
+        }
+      }
     },
-    []
+    [API_BASE, user]
   );
 
   const updateAuthAccountPassword = React.useCallback((email: string, password: string) => {
@@ -1003,7 +1020,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : account
       )
     );
-  }, []);
+
+    const token = window.localStorage.getItem("slpm:token");
+    if (token && API_BASE) {
+      const currentUserId = user?.email === email ? user?.id : undefined;
+      if (currentUserId) {
+        fetch(`${API_BASE}/users/${currentUserId}/password`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ password }),
+        }).catch((error) => console.error("Failed to update password", error));
+      }
+    }
+  }, [API_BASE, user]);
 
   const updateClientAccountDetails = React.useCallback(
     (currentEmail: string, details: Pick<Contact, "name" | "role" | "email">) => {

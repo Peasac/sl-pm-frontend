@@ -406,7 +406,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (mappedProjects.length > 0) {
             setProjects(mappedProjects);
             setActiveProjectId((prev) =>
-              mappedProjects.some((p) => p.id === prev) ? prev : mappedProjects[0].id
+              mappedProjects.some((p: any) => p.id === prev) ? prev : mappedProjects[0].id
             );
           }
         }

@@ -267,16 +267,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [authError, setAuthError] = React.useState<string | null>(null);
   const hasCheckedAuthRef = React.useRef(false);
   const [authAccounts, setAuthAccounts] = React.useState<AuthAccount[]>(defaultAuthAccounts);
-  const [projects, setProjects] = React.useState<Project[]>(projectCatalog);
-  const [clientAccounts, setClientAccounts] = React.useState<ClientAccount[]>(
-    getClientAccountsFromProjects(projectCatalog)
-  );
+  const [projects, setProjects] = React.useState<Project[]>([]);
+  const [clientAccounts, setClientAccounts] = React.useState<ClientAccount[]>([]);
   const [starlinkMembers, setStarlinkMembers] = React.useState<Contact[]>(defaultStarlinkMembers);
   const [deletedClientEmails, setDeletedClientEmails] = React.useState<string[]>([]);
   const [deletedStarlinkEmails, setDeletedStarlinkEmails] = React.useState<string[]>([]);
-  const [activeProjectId, setActiveProjectId] = React.useState<string>(
-    projectCatalog[0]?.id ?? ""
-  );
+  const [activeProjectId, setActiveProjectId] = React.useState<string>("");
   
   const pathname = usePathname();
 

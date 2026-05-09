@@ -33,6 +33,23 @@ export default function OverviewPage() {
         ? "Member Portal"
         : "Client Portal";
   const timelineItems = project?.timelineItems ?? [];
+  const { projects } = useAppContext();
+
+  if (projects.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4 reveal-up">
+        <h2 className="text-2xl font-semibold">Welcome to the Portal</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          You don't have any active projects yet. Get started by creating your first project.
+        </p>
+        {role === "admin" && (
+          <Button asChild>
+            <Link href="/projects/new">Create Project</Link>
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -41,12 +58,6 @@ export default function OverviewPage() {
       <div className="flex flex-wrap items-start justify-between gap-4 reveal-up">
         <div>
           <h2 className="text-2xl font-semibold">Welcome back{user ? `, ${user.name}` : ""}</h2>
-          {/* <p className="mt-2 text-sm text-muted-foreground">
-            You are viewing the {portalLabel}.{" "}
-            {role === "member"
-              ? "You can view project progress and upload photos for your assigned tasks."
-              : `Editing is ${canEdit ? "enabled" : "disabled"}.`}
-          </p> */}
         </div>
       </div>
       <Hero />

@@ -1,4 +1,26 @@
-import type { ClientAccount, Contact, Project } from "@/lib/types";
+import type { ClientAccount, Contact, Project, ProjectClientAccess } from "@/lib/types";
+
+/** Older persisted projects stored one client object; runtime code expects an array. */
+export function normalizeProjectClientAccess(project: Project): Project {
+  const raw = project.clientAccess as unknown;
+  if (Array.isArray(raw)) {
+    return project;
+  }
+  if (raw && typeof raw === "object" && raw !== null && "email" in raw) {
+    const c = raw as ProjectClientAccess;
+    return {
+      ...project,
+      clientAccess: [
+        {
+          name: c.name ?? "",
+          email: c.email ?? "",
+          password: c.password ?? "",
+        },
+      ],
+    };
+  }
+  return { ...project, clientAccess: [] };
+}
 
 export const defaultStarlinkMembers: Contact[] = [
   {
@@ -46,7 +68,8 @@ const getInitials = (value: string) =>
 export const getClientAccountsFromProjects = (projects: Project[]) => {
   const accountsByEmail = new Map<string, ClientAccount>();
 
-  projects.forEach((project) => {
+  projects.forEach((raw) => {
+    const project = normalizeProjectClientAccess(raw);
     const summary = project.summary;
     const projectContact = project.contacts.find((contact) => contact.team === "Client Team");
 
@@ -54,9 +77,13 @@ export const getClientAccountsFromProjects = (projects: Project[]) => {
       return;
     }
 
+    const clientAccessEntry = project.clientAccess.find(
+      (entry) => entry.email.toLowerCase() === projectContact.email.toLowerCase()
+    );
+
     accountsByEmail.set(projectContact.email, {
       ...projectContact,
-      password: project.clientAccess.password,
+      password: clientAccessEntry?.password ?? "",
       sourceProjectId: project.id,
       avatar: projectContact.avatar || getInitials(summary.client),
     });

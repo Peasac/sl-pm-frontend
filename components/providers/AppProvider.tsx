@@ -19,6 +19,7 @@ import {
   defaultStarlinkMembers,
   getClientAccountsFromProjects,
   getStarlinkMembersFromProjects,
+  normalizeProjectClientAccess,
 } from "@/lib/project-people";
 import { projectCatalog } from "@/lib/mock-data";
 
@@ -201,7 +202,7 @@ const mapProjectFromApi = (projectData: any): Project => {
   const clientName =
     projectData.summary?.client || clients[0]?.name || projectData.name || "Client";
 
-  return {
+  return normalizeProjectClientAccess({
     id: projectData._id ?? createId("project"),
     name: projectData.name,
     summary: {
@@ -216,7 +217,7 @@ const mapProjectFromApi = (projectData: any): Project => {
       budget: projectData.summary?.budget ?? "TBD",
       nextMilestone: projectData.summary?.nextMilestone ?? "Kickoff",
     },
-    clientAccess: clients.map(client => ({
+    clientAccess: clients.map((client: Contact) => ({
       name: client.name,
       email: client.email,
       password: "",
@@ -227,7 +228,7 @@ const mapProjectFromApi = (projectData: any): Project => {
     tasks: [],
     contacts: [...clients, ...members],
     taskMedia: [],
-  };
+  });
 };
 
 const mapTaskFromApi = (taskData: any): Task => {
@@ -464,8 +465,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const parsed = JSON.parse(storedProjects) as Project[];
         if (Array.isArray(parsed) && parsed.length) {
-          parsedProjects = parsed;
-          setProjects(parsed);
+          parsedProjects = parsed.map(normalizeProjectClientAccess);
+          setProjects(parsedProjects);
         }
       } catch {
         window.localStorage.removeItem(PROJECTS_STORAGE_KEY);
@@ -744,16 +745,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (project.client.newClients.length > 0) {
       setClientAccounts((previousClients) => {
-        const newlyAdded = project.client.newClients.map(client => ({
-          id: createId("client"),
-          name: client.name,
-          role: "Client Contact",
-          email: client.email,
-          team: "Client Team",
-          avatar: getInitials(client.name),
-          password: client.password,
-          sourceProjectId: projectId,
-        }));
+        const newlyAdded = project.client.newClients.map(
+          (client): ClientAccount => ({
+            id: createId("client"),
+            name: client.name,
+            role: "Client Contact",
+            email: client.email,
+            team: "Client Team",
+            avatar: getInitials(client.name),
+            password: client.password,
+            sourceProjectId: projectId,
+          })
+        );
         return [...newlyAdded, ...previousClients.filter(acc => !newlyAdded.some(n => n.email === acc.email))];
       });
     }
@@ -1108,13 +1111,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setProjects((previousProjects) =>
         previousProjects.map((project) => {
-          const shouldUpdateClient = project.clientAccess.email === currentEmail;
+          const shouldUpdateClient = project.clientAccess.some(
+            (client) => client.email === currentEmail
+          );
           const nextClientAccess = shouldUpdateClient
-            ? {
-                ...project.clientAccess,
-                name: details.name,
-                email: details.email,
-              }
+            ? project.clientAccess.map((client) =>
+                client.email === currentEmail
+                  ? { ...client, name: details.name, email: details.email }
+                  : client
+              )
             : project.clientAccess;
 
           return {
@@ -1263,25 +1268,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
 
     setProjects((previousProjects) =>
-      previousProjects.map((project) =>
-        project.clientAccess.email === email
-          ? {
-              ...project,
-              clientAccess: {
-                ...project.clientAccess,
-                password,
-              },
-              contacts: project.contacts.map((contact) =>
-                contact.email === email
-                  ? {
-                      ...contact,
-                      password,
-                    }
-                  : contact
-              ),
-            }
-          : project
-      )
+      previousProjects.map((project) => {
+        const matchesClientAccess = project.clientAccess.some((client) => client.email === email);
+        if (!matchesClientAccess) {
+          return project;
+        }
+        return {
+          ...project,
+          clientAccess: project.clientAccess.map((client) =>
+            client.email === email ? { ...client, password } : client
+          ),
+          contacts: project.contacts.map((contact) =>
+            contact.email === email
+              ? {
+                  ...contact,
+                  password,
+                }
+              : contact
+          ),
+        };
+      })
     );
 
     const token = window.localStorage.getItem("slpm:token");
@@ -1854,8 +1860,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (pathname !== "/login" && !user && authChecked) {
-    return null;
+  if (pathname !== "/login" && !user && authChecked && !authError) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-muted-foreground">
+        <p>Redirecting to sign in…</p>
+        <p className="max-w-sm text-xs">
+          If nothing happens, open <span className="text-foreground">/login</span> or clear site data for this host and
+          reload.
+        </p>
+      </div>
+    );
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

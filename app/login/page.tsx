@@ -9,6 +9,8 @@ import { useAppContext } from "@/components/providers/AppProvider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
 export default function LoginPage() {
   const router = useRouter();
   const { authAccounts, setUser } = useAppContext();
@@ -32,7 +34,7 @@ export default function LoginPage() {
     }
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/login`, {
+      const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: normalizedEmail, password: enteredPassword }),
@@ -54,7 +56,9 @@ export default function LoginPage() {
         setError(data.message || "Incorrect email or password. Please try again.");
       }
     } catch (err) {
-      setError("Failed to connect to the backend server. Make sure it is running on port 3001.");
+      setError(
+        "Failed to connect to the backend server. Confirm NEXT_PUBLIC_API_URL in .env.local matches your API (including port) and that the API is running."
+      );
     }
     setLoading(false);
   }
@@ -210,6 +214,19 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
+
+              {!API_URL && (
+                <div className="flex items-center gap-3 rounded-xl border border-amber-400/35 bg-amber-500/15 px-4 py-3">
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                  <p className="text-[13px] font-medium text-amber-50">
+                    Missing <code className="rounded bg-black/20 px-1">NEXT_PUBLIC_API_URL</code> in{" "}
+                    <code className="rounded bg-black/20 px-1">.env.local</code> — must match your API
+                    origin (for example{" "}
+                    <code className="rounded bg-black/20 px-1">http://localhost:3002</code>
+                    {" "}if the API listens on port 3002).
+                  </p>
+                </div>
+              )}
 
               {/* Error */}
               {error && (

@@ -110,7 +110,10 @@ function ProfileMenu() {
             (contact) =>
               contact.email.toLowerCase() === user.email.toLowerCase() ||
               contact.name.toLowerCase() === user.name.toLowerCase()
-          ) || project.clientAccess.email.toLowerCase() === user.email.toLowerCase()
+          ) ||
+          project.clientAccess.some(
+            (client) => client.email.toLowerCase() === user.email.toLowerCase()
+          )
         );
 
   const menu = (

@@ -34,6 +34,12 @@ export default function LoginPage() {
       return;
     }
 
+    if (enteredPassword.length > 12) {
+      setError("Password must not exceed 12 characters");
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",

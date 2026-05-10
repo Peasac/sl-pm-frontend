@@ -25,6 +25,10 @@ export function ForcePasswordChangeDialog() {
       setError("Password must be at least 6 characters");
       return;
     }
+    if (password.length > 12) {
+      setError("Password must not exceed 12 characters");
+      return;
+    }
 
     setIsSubmitting(true);
     setError("");

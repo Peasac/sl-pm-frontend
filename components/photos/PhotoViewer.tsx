@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { X, Pen, RotateCcw, Save, Square, Circle, Type } from "lucide-react";
+import { X, Pen, RotateCcw, Save, Square, Circle, Type, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface PhotoViewerProps {
@@ -40,6 +40,7 @@ export function PhotoViewer({
   const [mounted, setMounted] = React.useState(false);
   const [isImageLoaded, setIsImageLoaded] = React.useState(false);
   const [imageError, setImageError] = React.useState<string | null>(null);
+  const [zoom, setZoom] = React.useState(1.0);
   const proxySrc = React.useMemo(
     () => `/api/media-proxy?url=${encodeURIComponent(src)}`,
     [src]
@@ -177,6 +178,23 @@ export function PhotoViewer({
     syncCanvasToImage();
   };
 
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(prev + 0.2, 3.0));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prev) => Math.max(prev - 0.2, 0.5));
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.deltaY < 0) {
+      handleZoomIn();
+    } else {
+      handleZoomOut();
+    }
+  };
+
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -229,7 +247,15 @@ export function PhotoViewer({
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-1000 flex items-center justify-center bg-black/80 pointer-events-auto">
+    <div 
+      className="fixed inset-0 z-1000 flex items-center justify-center bg-black/80 pointer-events-auto"
+      onClick={(e) => {
+        // Prevent clicks on the background from propagating
+        if (e.target === e.currentTarget) {
+          e.stopPropagation();
+        }
+      }}
+    >
       <div
         ref={containerRef}
         className="relative max-h-[90vh] max-w-[90vw] flex flex-col bg-neutral-900 rounded-lg overflow-hidden pointer-events-auto"
@@ -246,14 +272,18 @@ export function PhotoViewer({
         </div>
 
         {/* Canvas */}
-        <div className="flex-1 overflow-auto flex items-center justify-center bg-black p-4">
+        <div 
+          className="flex-1 overflow-auto flex items-center justify-center bg-black p-4"
+          onWheel={handleWheel}
+          onClick={(e) => e.stopPropagation()}
+        >
           {!isImageLoaded && !imageError && (
             <div className="text-sm text-neutral-400">Loading image...</div>
           )}
           {imageError && (
             <div className="text-sm text-red-400">{imageError}</div>
           )}
-          <div className="relative inline-block max-w-full">
+          <div className="relative inline-block max-w-full" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
             <img
               ref={imageRef}
               src={proxySrc}
@@ -295,6 +325,25 @@ export function PhotoViewer({
               className="text-xs"
             >
               View
+            </Button>
+
+            {/* Zoom Controls */}
+            <Button
+              variant="outline"
+              onClick={handleZoomOut}
+              size="sm"
+              title="Zoom Out (Ctrl+Scroll)"
+            >
+              <Minus className="w-4 h-4" />
+            </Button>
+            <span className="text-xs text-neutral-400 w-8 text-center">{Math.round(zoom * 100)}%</span>
+            <Button
+              variant="outline"
+              onClick={handleZoomIn}
+              size="sm"
+              title="Zoom In (Ctrl+Scroll)"
+            >
+              <Plus className="w-4 h-4" />
             </Button>
 
             <div className="w-px h-6 bg-neutral-600" />

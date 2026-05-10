@@ -15,7 +15,7 @@ export function PasswordInput(
       <Input
         {...rest}
         type={show ? "text" : "password"}
-        maxLength={12}
+        maxLength={18}
         className={`${className ?? ""} pr-11`}
       />
       <button

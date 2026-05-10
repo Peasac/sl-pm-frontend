@@ -343,7 +343,15 @@ function PhotosPageContent() {
         </div>
       )}
 
-      <Dialog open={Boolean(activeTaskId)} onOpenChange={(open) => (!open ? handleCloseDialog() : undefined)}>
+      <Dialog open={Boolean(activeTaskId)} onOpenChange={(open) => {
+        // Don't close the dialog if the PhotoViewer is open
+        if (!open && viewerMedia) {
+          return;
+        }
+        if (!open) {
+          handleCloseDialog();
+        }
+      }}>
         <DialogContent className="max-h-[92vh] max-w-6xl overflow-y-auto p-8">
           <DialogHeader>
             <DialogTitle>{activeTask ? `Media for ${activeTask.name}` : "Task media"}</DialogTitle>

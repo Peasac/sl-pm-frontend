@@ -248,24 +248,39 @@ export function PhotoViewer({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-1000 flex items-center justify-center bg-black/80 pointer-events-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 pointer-events-auto"
       onClick={(e) => {
+        e.stopPropagation();
         // Only close on background clicks, not on the dialog itself
         if (e.target === e.currentTarget) {
-          e.stopPropagation();
+          // Don't close here, only when X is clicked
         }
+      }}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+      }}
+      onMouseUp={(e) => {
+        e.stopPropagation();
       }}
     >
       <div
         ref={containerRef}
         className="relative max-h-[90vh] max-w-[90vw] flex flex-col bg-neutral-900 rounded-lg overflow-hidden pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onMouseUp={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-neutral-700">
+        <div 
+          className="flex items-center justify-between p-4 border-b border-neutral-700"
+          onClick={(e) => e.stopPropagation()}
+        >
           <h2 className="text-white font-semibold text-lg">{alt}</h2>
           <button
-            onClick={onClose}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             className="p-1 hover:bg-neutral-800 rounded transition"
           >
             <X className="w-6 h-6 text-white" />
@@ -277,6 +292,8 @@ export function PhotoViewer({
           className="flex-1 overflow-auto flex items-center justify-center bg-black p-4"
           onWheel={handleWheel}
           onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
         >
           {!isImageLoaded && !imageError && (
             <div className="text-sm text-neutral-400">Loading image...</div>
@@ -289,6 +306,9 @@ export function PhotoViewer({
               ref={imageRef}
               src={proxySrc}
               alt={alt}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
               className={`max-h-[70vh] max-w-full object-contain ${
                 isImageLoaded ? "block" : "hidden"
               }`}
@@ -304,10 +324,23 @@ export function PhotoViewer({
             />
             <canvas
               ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                handleMouseDown(e as any);
+              }}
+              onMouseMove={(e) => {
+                e.stopPropagation();
+                handleMouseMove(e as any);
+              }}
+              onMouseUp={(e) => {
+                e.stopPropagation();
+                handleMouseUp();
+              }}
+              onMouseLeave={(e) => {
+                e.stopPropagation();
+                handleMouseUp();
+              }}
+              onClick={(e) => e.stopPropagation()}
               className={`absolute left-0 top-0 h-full w-full ${
                 drawMode !== "none" ? "cursor-crosshair" : "cursor-default"
               } ${isImageLoaded ? "block" : "hidden"}`}
@@ -316,7 +349,12 @@ export function PhotoViewer({
         </div>
 
         {/* Drawing Tools */}
-        <div className="border-t border-neutral-700 p-4 bg-neutral-800">
+        <div 
+          className="border-t border-neutral-700 p-4 bg-neutral-800"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
+          onMouseUp={(e) => e.stopPropagation()}
+        >
           <div className="flex flex-wrap gap-2 items-center">
             {/* Draw Mode Toggle */}
             <Button

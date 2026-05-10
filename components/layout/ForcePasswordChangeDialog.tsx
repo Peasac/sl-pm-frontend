@@ -25,8 +25,8 @@ export function ForcePasswordChangeDialog() {
       setError("Password must be at least 6 characters");
       return;
     }
-    if (password.length > 12) {
-      setError("Password must not exceed 12 characters");
+    if (password.length > 18) {
+      setError("Password must not exceed 18 characters");
       return;
     }
 
@@ -61,6 +61,7 @@ export function ForcePasswordChangeDialog() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <div className="text-xs text-muted-foreground">{password.length}/18 characters</div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="confirm-password">Confirm Password</Label>
@@ -69,6 +70,7 @@ export function ForcePasswordChangeDialog() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
+            <div className="text-xs text-muted-foreground">{confirmPassword.length}/18 characters</div>
           </div>
         </div>
         <DialogFooter>

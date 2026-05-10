@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import PasswordInput from "@/components/ui/password-input";
 import { cn } from "@/lib/utils";
 
 const getInitials = (value: string) =>
@@ -104,6 +105,11 @@ export default function ProfilePage() {
 
     if (password.length < 6) {
       setPasswordError("Password must be at least 6 characters.");
+      return;
+    }
+
+    if (password.length > 18) {
+      setPasswordError("Password must not exceed 18 characters.");
       return;
     }
 
@@ -204,25 +210,25 @@ export default function ProfilePage() {
                         <label className="text-sm font-medium" htmlFor="new-password">
                           New password
                         </label>
-                        <Input
+                        <PasswordInput
                           id="new-password"
-                          type="password"
                           value={password}
                           onChange={(event) => setPassword(event.target.value)}
                           placeholder="Enter new password"
                         />
+                        <div className="text-xs text-muted-foreground">{password.length}/18 characters</div>
                       </div>
                       <div className="grid gap-2">
                         <label className="text-sm font-medium" htmlFor="confirm-password">
                           Confirm new password
                         </label>
-                        <Input
+                        <PasswordInput
                           id="confirm-password"
-                          type="password"
                           value={confirmPassword}
                           onChange={(event) => setConfirmPassword(event.target.value)}
                           placeholder="Re-enter new password"
                         />
+                        <div className="text-xs text-muted-foreground">{confirmPassword.length}/18 characters</div>
                       </div>
                       {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
                       <div className="flex justify-end">

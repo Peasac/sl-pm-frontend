@@ -382,9 +382,9 @@ export default function NewProjectPage() {
                           onChange={e => setNewClientForm(prev => ({ ...prev, password: e.target.value }))}
                           className="h-9 text-xs flex-1"
                         />
-                        <Button 
-                          type="button" 
-                          onClick={addNewClient} 
+                        <Button
+                          type="button"
+                          onClick={addNewClient}
                           size="sm"
                           disabled={!newClientForm.name || !newClientForm.email || !newClientForm.password}
                         >
@@ -536,6 +536,7 @@ export default function NewProjectPage() {
                 <Button type="button" variant="outline" asChild>
                   <Link href="/overview">Cancel</Link>
                 </Button>
+              </div>
               </div>
             </CardContent>
           </form>

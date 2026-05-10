@@ -250,7 +250,7 @@ export function PhotoViewer({
     <div 
       className="fixed inset-0 z-1000 flex items-center justify-center bg-black/80 pointer-events-auto"
       onClick={(e) => {
-        // Prevent clicks on the background from propagating
+        // Only close on background clicks, not on the dialog itself
         if (e.target === e.currentTarget) {
           e.stopPropagation();
         }
@@ -259,6 +259,7 @@ export function PhotoViewer({
       <div
         ref={containerRef}
         className="relative max-h-[90vh] max-w-[90vw] flex flex-col bg-neutral-900 rounded-lg overflow-hidden pointer-events-auto"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-neutral-700">

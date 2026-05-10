@@ -34,8 +34,8 @@ export default function LoginPage() {
       return;
     }
 
-    if (enteredPassword.length > 12) {
-      setError("Password must not exceed 12 characters");
+    if (enteredPassword.length > 18) {
+      setError("Password must not exceed 18 characters");
       setLoading(false);
       return;
     }

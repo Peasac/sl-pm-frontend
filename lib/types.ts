@@ -6,6 +6,7 @@ export type User = {
   email: string;
   role: Role;
   title?: string;
+  requiresPasswordChange?: boolean;
 };
 
 export type ProjectSummary = {
@@ -90,17 +91,14 @@ export type ProjectClientAccess = {
   password: string;
 };
 
-export type ProjectClientSelection =
-  | {
-      mode: "existing";
-      email: string;
-    }
-  | {
-      mode: "new";
-      name: string;
-      email: string;
-      password: string;
-    };
+export type ProjectClientSelection = {
+  existingEmails: string[];
+  newClients: Array<{
+    name: string;
+    email: string;
+    password: string;
+  }>;
+};
 
 export type ClientAccount = Contact & {
   password: string;
@@ -121,7 +119,7 @@ export type Project = {
   id: string;
   name: string;
   summary: ProjectSummary;
-  clientAccess: ProjectClientAccess;
+  clientAccess: ProjectClientAccess[];
   overviewStats: OverviewStat[];
   timelineItems: TimelineItem[];
   scopeItems: ScopeItem[];

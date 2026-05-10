@@ -484,45 +484,4 @@ const projectBetaMedia: TaskMediaItem[] = [
   },
 ];
 
-export const projectCatalog: Project[] = [
-  {
-    id: "alpha",
-    name: "XYZ Phase 2",
-    summary: projectAlphaSummary,
-    clientAccess: {
-      name: "Carson Holt",
-      email: "carson.holt@xyz.com",
-      password: "xyz-coastal-2026",
-    },
-    overviewStats: [
-      { label: "Completed", value: 18, detail: "Milestones" },
-      { label: "In Progress", value: 6, detail: "Active streams" },
-      { label: "Pending", value: 4, detail: "Approvals" },
-    ],
-    timelineItems: projectAlphaTimeline,
-    scopeItems: projectAlphaScope,
-    tasks: projectAlphaTasks,
-    contacts: projectAlphaContacts,
-    taskMedia: projectAlphaMedia,
-  },
-  {
-    id: "beta",
-    name: "ZEN Phase 1",
-    summary: projectBetaSummary,
-    clientAccess: {
-      name: "Amelia Hart",
-      email: "amelia.hart@zen.com",
-      password: "zen-maritime-2026",
-    },
-    overviewStats: [
-      { label: "Completed", value: 6, detail: "Milestones" },
-      { label: "In Progress", value: 4, detail: "Active streams" },
-      { label: "Pending", value: 3, detail: "Approvals" },
-    ],
-    timelineItems: projectBetaTimeline,
-    scopeItems: projectBetaScope,
-    tasks: projectBetaTasks,
-    contacts: projectBetaContacts,
-    taskMedia: projectBetaMedia,
-  },
-];
+export const projectCatalog: Project[] = [];

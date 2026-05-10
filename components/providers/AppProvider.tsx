@@ -114,7 +114,7 @@ type AppContextValue = {
     currentEmail: string,
     details: Pick<User, "name" | "email" | "role">
   ) => void;
-  updateAuthAccountPassword: (email: string, password: string) => void;
+  updateAuthAccountPassword: (email: string, password: string) => Promise<void>;
   updateClientAccountDetails: (
     currentEmail: string,
     details: Pick<Contact, "name" | "role" | "email">
@@ -140,6 +140,7 @@ type AppContextValue = {
   }) => Promise<void>;
   addProjectMember: (memberId: string) => void;
   removeProjectMember: (memberId: string) => void;
+  updateProjectDetails: (projectId: string, data: any) => Promise<void>;
   canEdit: boolean;
   canComment: boolean;
   canUpload: boolean;
@@ -189,16 +190,16 @@ const mapProjectFromApi = (projectData: any): Project => {
     status: item.status,
   }));
 
-  const client = projectData.clientAccessId
-    ? mapUserToContact(projectData.clientAccessId, "Client Team")
-    : null;
+  const clients = (projectData.clientAccessIds ?? []).map((client: any) =>
+    mapUserToContact(client, "Client Team")
+  );
 
   const members = (projectData.members ?? []).map((member: any) =>
     mapUserToContact(member, "Starlink Team")
   );
 
   const clientName =
-    projectData.summary?.client || client?.name || projectData.name || "Client";
+    projectData.summary?.client || clients[0]?.name || projectData.name || "Client";
 
   return {
     id: projectData._id ?? createId("project"),
@@ -215,16 +216,16 @@ const mapProjectFromApi = (projectData: any): Project => {
       budget: projectData.summary?.budget ?? "TBD",
       nextMilestone: projectData.summary?.nextMilestone ?? "Kickoff",
     },
-    clientAccess: {
-      name: client?.name ?? clientName,
-      email: client?.email ?? "",
+    clientAccess: clients.map(client => ({
+      name: client.name,
+      email: client.email,
       password: "",
-    },
+    })),
     overviewStats: projectData.overviewStats ?? [],
     timelineItems,
     scopeItems: [],
     tasks: [],
-    contacts: client ? [client, ...members] : members,
+    contacts: [...clients, ...members],
     taskMedia: [],
   };
 };
@@ -714,64 +715,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const summaryStatus =
       progress === 100 ? "Completed" : completedCount > 0 || inProgressCount > 0 ? "In Progress" : "Planning";
 
-    const clientAccess =
-      project.client.mode === "existing"
-        ? clientAccounts.find((account) => account.email === project.client.email) ?? null
-        : null;
+    const selectedExistingClients = project.client.existingEmails.map(email => 
+      clientAccounts.find(acc => acc.email === email)
+    ).filter(Boolean) as ClientAccount[];
 
-    const clientName =
-      project.client.mode === "existing"
-        ? clientAccess?.name ?? project.client.email.split("@")[0] ?? "Client"
-        : project.client.name;
-    const clientEmail =
-      project.client.mode === "existing" ? project.client.email : project.client.email;
-    const clientPassword =
-      project.client.mode === "existing"
-        ? clientAccess?.password ?? ""
-        : project.client.password;
+    const clientContacts: Contact[] = selectedExistingClients.map(client => ({
+      ...client,
+      id: createId("contact"),
+    }));
+
+    const newClientContacts: Contact[] = project.client.newClients.map(client => ({
+      id: createId("contact"),
+      name: client.name,
+      role: "Client Contact",
+      email: client.email,
+      team: "Client Team",
+      avatar: getInitials(client.name),
+    }));
 
     const contacts: Contact[] = [
-      {
-        id: createId("contact"),
-        name: clientName,
-        role: "Client Contact",
-        email: clientEmail,
-        team: "Client Team",
-        avatar: getInitials(clientName),
-      },
+      ...clientContacts,
+      ...newClientContacts,
       ...project.members.map((member) => ({
         ...member,
         id: createId("contact"),
       })),
     ];
 
-    if (project.client.mode === "new") {
-      setClientAccounts((previousClients) => [
-        {
+    if (project.client.newClients.length > 0) {
+      setClientAccounts((previousClients) => {
+        const newlyAdded = project.client.newClients.map(client => ({
           id: createId("client"),
-          name: clientName,
+          name: client.name,
           role: "Client Contact",
-          email: clientEmail,
+          email: client.email,
           team: "Client Team",
-          avatar: getInitials(clientName),
-          password: clientPassword,
+          avatar: getInitials(client.name),
+          password: client.password,
           sourceProjectId: projectId,
-        },
-        ...previousClients.filter((account) => account.email !== clientEmail),
-      ]);
+        }));
+        return [...newlyAdded, ...previousClients.filter(acc => !newlyAdded.some(n => n.email === acc.email))];
+      });
     }
 
     const nextProject: Project = {
       id: projectId,
       name: project.name,
-      clientAccess: {
-        name: clientName,
-        email: clientEmail,
-        password: clientPassword,
-      },
+      clientAccess: [
+        ...selectedExistingClients.map(c => ({ name: c.name, email: c.email, password: c.password })),
+        ...project.client.newClients.map(c => ({ name: c.name, email: c.email, password: c.password }))
+      ],
       summary: {
         name: project.name,
-        client: clientName,
+        client: selectedExistingClients[0]?.name || project.client.newClients[0]?.name || "Client",
         companyLogo: project.companyLogo,
         location: "TBD",
         status: summaryStatus,
@@ -802,32 +798,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      let clientAccessId = "";
+      const existingClientIds = project.client.existingEmails
+        .map(email => clientAccounts.find(acc => acc.email === email)?.id)
+        .filter(Boolean);
 
-      if (project.client.mode === "existing") {
-        const existing = clientAccounts.find((account) => account.email === project.client.email);
-        clientAccessId = existing?.id ?? "";
-      } else {
-        const response = await fetch(`${API_BASE}/users`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            name: clientName,
-            email: clientEmail,
-            password: clientPassword,
-            role: "client",
-            team: "Client Team",
-            title: "Client Contact",
-            avatar: getInitials(clientName),
-          }),
-        });
+      const newClientIds = await Promise.all(
+        project.client.newClients.map(async (client) => {
+          const response = await fetch(`${API_BASE}/users`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              ...client,
+              role: "client",
+              team: "Client Team",
+              title: "Client Contact",
+              avatar: getInitials(client.name),
+            }),
+          });
+          const created = await response.json();
+          if (response.ok && created.success) {
+            setClientAccounts((prev) => [mapUserToClientAccount(created.data), ...prev]);
+            return created.data.id;
+          }
+          return null;
+        })
+      );
 
-        const created = await response.json();
-        if (response.ok && created.success) {
-          clientAccessId = created.data.id;
-          setClientAccounts((prev) => [mapUserToClientAccount(created.data), ...prev]);
-        }
-      }
+      const allClientIds = [...existingClientIds, ...newClientIds.filter(Boolean)];
 
       const memberIds = project.members
         .map((member) => (member as Contact).id)
@@ -842,7 +839,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           overviewStats: nextProject.overviewStats,
           timelineItems: nextProject.timelineItems.map(({ id, ...rest }) => rest),
           members: memberIds,
-          clientAccessId: clientAccessId || undefined,
+          clientAccessIds: allClientIds,
         }),
       });
 
@@ -858,6 +855,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     return projectId;
   }, [API_BASE, clientAccounts]);
+
+  const updateProjectDetails = React.useCallback(async (projectId: string, data: any) => {
+    const token = window.localStorage.getItem("slpm:token");
+    if (!token || !API_BASE) {
+      // Fallback to local update
+      updateProject(projectId, (p) => ({ ...p, ...data }));
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(data),
+      });
+
+      const payload = await response.json();
+      if (response.ok && payload.success && payload.data) {
+        const mapped = mapProjectFromApi(payload.data);
+        setProjects((prev) => prev.map((p) => (p.id === projectId ? mapped : p)));
+      }
+    } catch (error) {
+      console.error("Failed to update project details", error);
+    }
+  }, [API_BASE, updateProject]);
 
   const addClientAccount = React.useCallback((account: Omit<ClientAccount, "id">) => {
     if (clientAccounts.some((existing) => existing.email === account.email)) {
@@ -1009,7 +1031,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [API_BASE, user]
   );
 
-  const updateAuthAccountPassword = React.useCallback((email: string, password: string) => {
+  const updateAuthAccountPassword = React.useCallback(async (email: string, password: string) => {
     setAuthAccounts((previousAccounts) =>
       previousAccounts.map((account) =>
         account.email === email
@@ -1022,15 +1044,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
 
     const token = window.localStorage.getItem("slpm:token");
-    if (token && API_BASE) {
-      const currentUserId = user?.email === email ? user?.id : undefined;
-      if (currentUserId) {
-        fetch(`${API_BASE}/users/${currentUserId}/password`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ password }),
-        }).catch((error) => console.error("Failed to update password", error));
-      }
+    if (!token || !API_BASE) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUserId = user?.email === email ? user?.id : undefined;
+    if (!currentUserId) {
+      throw new Error("User ID not found");
+    }
+
+    const response = await fetch(`${API_BASE}/users/${currentUserId}/password`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ password }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update password");
     }
   }, [API_BASE, user]);
 
@@ -1386,8 +1416,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...project.tasks,
         ],
         timelineItems: project.timelineItems.map((item) =>
-          item.id === task.timelineStageId && item.status === "Completed"
-            ? { ...item, status: "In Progress" }
+          item.id === task.timelineStageId && (item.status === "Pending" || item.status === "Completed")
+            ? { ...item, status: "In Progress", date: item.status === "Pending" ? new Date().toISOString().split('T')[0] : item.date }
             : item
         ),
       }));
@@ -1409,13 +1439,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const payload = await response.json();
         if (response.ok && payload.success && payload.data) {
           const mappedTask = mapTaskFromApi(payload.data);
-          updateProject(activeProjectId, (project) => ({
-            ...project,
-            tasks: [
-              mappedTask,
-              ...project.tasks.filter((existing) => existing.id !== fakeId),
-            ],
-          }));
+          updateProject(activeProjectId, (project) => {
+            const stage = project.timelineItems.find((item) => item.id === task.timelineStageId);
+            if (stage && (stage.status === "Pending" || stage.status === "Completed")) {
+              // Also update timeline status in backend
+              fetch(`${API_BASE}/projects/${activeProjectId}/timeline/${task.timelineStageId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ status: "In Progress", date: stage.status === "Pending" ? new Date().toISOString().split('T')[0] : stage.date }),
+              }).catch(e => console.error("Failed to update timeline status", e));
+            }
+            
+            return {
+              ...project,
+              tasks: [
+                mappedTask,
+                ...project.tasks.filter((existing) => existing.id !== fakeId),
+              ],
+            };
+          });
         }
       } catch (error) {
         console.error("Failed to add task to backend:", error);
@@ -1456,7 +1498,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const anyActive = stageTasks.some((task) => task.status === "In Progress" || task.status === "Blocked");
         const nextStatus = allDone ? "Completed" : anyActive ? "In Progress" : "Pending";
 
-        return item.id === stageTasks[0].timelineStageId ? { ...item, status: nextStatus } : item;
+        if (item.id === stageTasks[0].timelineStageId && nextStatus !== item.status) {
+          const newDate = (item.status === "Pending" && nextStatus === "In Progress") ? new Date().toISOString().split('T')[0] : item.date;
+          
+          // Fire API call asynchronously
+          const token = window.localStorage.getItem("slpm:token");
+          if (token && API_BASE) {
+            fetch(`${API_BASE}/projects/${activeProjectId}/timeline/${item.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ status: nextStatus, date: newDate }),
+            }).catch(e => console.error("Failed to update timeline status on task change", e));
+          }
+
+          return { ...item, status: nextStatus, date: newDate };
+        }
+
+        return item;
       }),
     }));
 
@@ -1720,6 +1778,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addTaskMedia,
       addProjectMember,
       removeProjectMember,
+      updateProjectDetails,
       canEdit,
       canComment,
       canUpload,
@@ -1763,6 +1822,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addTaskMedia,
       addProjectMember,
       removeProjectMember,
+      updateProjectDetails,
       canEdit,
       canComment,
       canUpload,

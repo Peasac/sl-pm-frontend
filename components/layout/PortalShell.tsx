@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { ForcePasswordChangeDialog } from "@/components/layout/ForcePasswordChangeDialog";
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
   return (
@@ -15,6 +16,7 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
           <main className="flex-1 px-4 pb-12 pt-6 lg:px-8">{children}</main>
         </div>
       </div>
+      <ForcePasswordChangeDialog />
     </div>
   );
 }

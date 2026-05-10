@@ -79,13 +79,9 @@ export default function NewProjectPage() {
   const [companyLogo, setCompanyLogo] = React.useState("");
   const [companyLogoFile, setCompanyLogoFile] = React.useState<File | null>(null);
   const [startDate, setStartDate] = React.useState("");
-  const [clientMode, setClientMode] = React.useState<"existing" | "new">("existing");
-  const [selectedClientEmail, setSelectedClientEmail] = React.useState(
-    clientAccounts[0]?.email ?? ""
-  );
-  const [clientName, setClientName] = React.useState("");
-  const [clientEmail, setClientEmail] = React.useState("");
-  const [clientPassword, setClientPassword] = React.useState("");
+  const [selectedClientEmails, setSelectedClientEmails] = React.useState<string[]>([]);
+  const [newClients, setNewClients] = React.useState<Array<{ name: string; email: string; password: string }>>([]);
+  const [newClientForm, setNewClientForm] = React.useState({ name: "", email: "", password: "" });
   const [selectedMemberEmails, setSelectedMemberEmails] = React.useState<string[]>([
     starlinkMembers[0]?.email ?? "",
     starlinkMembers[1]?.email ?? "",
@@ -108,22 +104,21 @@ export default function NewProjectPage() {
     }
   }, [selectedMemberEmails.length, starlinkMembers]);
 
-  React.useEffect(() => {
-    if (clientMode === "existing" && !selectedClientEmail && clientAccounts[0]) {
-      setSelectedClientEmail(clientAccounts[0].email);
-    }
-  }, [clientAccounts, clientMode, selectedClientEmail]);
+  const toggleClient = (email: string) => {
+    setSelectedClientEmails((prev) =>
+      prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email]
+    );
+  };
 
-  React.useEffect(() => {
-    if (clientMode === "existing") {
-      const selectedClient = clientAccounts.find((account) => account.email === selectedClientEmail);
-      if (selectedClient) {
-        setClientName(selectedClient.name);
-        setClientEmail(selectedClient.email);
-        setClientPassword(selectedClient.password);
-      }
-    }
-  }, [clientAccounts, clientMode, selectedClientEmail]);
+  const addNewClient = () => {
+    if (!newClientForm.name || !newClientForm.email || !newClientForm.password) return;
+    setNewClients(prev => [...prev, { ...newClientForm }]);
+    setNewClientForm({ name: "", email: "", password: "" });
+  };
+
+  const removeNewClient = (index: number) => {
+    setNewClients(prev => prev.filter((_, i) => i !== index));
+  };
 
   const updateTimelineItem = (
     index: number,
@@ -172,9 +167,6 @@ export default function NewProjectPage() {
     setIsSubmitting(true);
 
     const projectTitle = projectName.trim();
-    const clientTitle = clientName.trim();
-    const emailValue = clientEmail.trim().toLowerCase();
-    const passwordValue = clientPassword.trim();
 
     if (!projectTitle || !startDate) {
       setFormError("Project name and start date are required.");
@@ -182,33 +174,8 @@ export default function NewProjectPage() {
       return;
     }
 
-    if (clientMode === "new" && (!clientTitle || !emailValue || !passwordValue)) {
-      setFormError("Client name, email, and password are required for a new account.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (clientMode === "new") {
-      const exists = clientAccounts.some(
-        (account) => account.email.toLowerCase() === emailValue.toLowerCase()
-      );
-      const memberExists = starlinkMembers.some(
-        (member) => member.email.toLowerCase() === emailValue.toLowerCase()
-      );
-      if (exists) {
-        setFormError("That client email already exists. Choose another email.");
-        setIsSubmitting(false);
-        return;
-      }
-      if (memberExists) {
-        setFormError("That email is already used by a member.");
-        setIsSubmitting(false);
-        return;
-      }
-    }
-
-    if (clientMode === "existing" && !selectedClientEmail) {
-      setFormError("Select an existing client account.");
+    if (selectedClientEmails.length === 0 && newClients.length === 0) {
+      setFormError("Select or add at least one client.");
       setIsSubmitting(false);
       return;
     }
@@ -255,18 +222,10 @@ export default function NewProjectPage() {
       name: projectTitle,
       startDate,
       companyLogo: uploadedLogoUrl || undefined,
-      client:
-        clientMode === "existing"
-          ? {
-              mode: "existing",
-              email: selectedClientEmail,
-            }
-          : {
-              mode: "new",
-              name: clientTitle,
-              email: emailValue,
-              password: passwordValue,
-            },
+      client: {
+        existingEmails: selectedClientEmails,
+        newClients: newClients,
+      },
       members: selectedMembers,
       timelineItems: timeline,
     });
@@ -336,72 +295,105 @@ export default function NewProjectPage() {
                     required
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Client account</Label>
-                  <Select value={clientMode} onValueChange={(value) => setClientMode(value as "existing" | "new") }>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose client source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="existing">Use existing client account</SelectItem>
-                      <SelectItem value="new">Create new client account</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                <div className="space-y-4 md:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Client access</Label>
+                    <p className="text-xs text-muted-foreground">Select existing or add new</p>
+                  </div>
+                  
+                  {/* Existing Clients Checkboxes */}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {clientAccounts.length > 0 ? (
+                      clientAccounts.map((account) => {
+                        const checked = selectedClientEmails.includes(account.email);
+                        return (
+                          <label
+                            key={account.email}
+                            className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-secondary/30 p-4 transition hover:bg-secondary/50"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleClient(account.email)}
+                              className="mt-1 h-4 w-4 rounded border-border bg-background text-primary"
+                            />
+                            <div className="flex-1 space-y-0.5">
+                              <p className="text-sm font-semibold">{account.name}</p>
+                              <p className="text-xs text-muted-foreground">{account.email}</p>
+                            </div>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <div className="col-span-2 rounded-xl border border-dashed border-border p-4 text-center">
+                        <p className="text-xs text-muted-foreground">No existing client accounts found.</p>
+                      </div>
+                    )}
+                  </div>
 
-              {clientMode === "existing" ? (
-                <div className="space-y-2">
-                  <Label htmlFor="existing-client">Select existing client</Label>
-                  <Select value={selectedClientEmail} onValueChange={setSelectedClientEmail}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a client account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientAccounts.map((account) => (
-                        <SelectItem key={account.email} value={account.email}>
-                          {account.name} - {account.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {/* New Clients List */}
+                  {newClients.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground uppercase">Newly added to this project</Label>
+                      <div className="grid gap-2">
+                        {newClients.map((client, index) => (
+                          <div key={index} className="flex items-center justify-between rounded-lg border border-border bg-secondary/20 px-3 py-2">
+                            <div className="text-xs">
+                              <span className="font-medium">{client.name}</span>
+                              <span className="ml-2 text-muted-foreground">({client.email})</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                              onClick={() => removeNewClient(index)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Add New Client Form */}
+                  <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-3">
+                    <p className="text-xs font-semibold">Create new client account</p>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <Input
+                        placeholder="Client name"
+                        value={newClientForm.name}
+                        onChange={e => setNewClientForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="h-9 text-xs"
+                      />
+                      <Input
+                        placeholder="Email"
+                        type="email"
+                        value={newClientForm.email}
+                        onChange={e => setNewClientForm(prev => ({ ...prev, email: e.target.value }))}
+                        className="h-9 text-xs"
+                      />
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Password"
+                          type="password"
+                          value={newClientForm.password}
+                          onChange={e => setNewClientForm(prev => ({ ...prev, password: e.target.value }))}
+                          className="h-9 text-xs flex-1"
+                        />
+                        <Button 
+                          type="button" 
+                          onClick={addNewClient} 
+                          size="sm"
+                          disabled={!newClientForm.name || !newClientForm.email || !newClientForm.password}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="client-name">Client name</Label>
-                    <Input
-                      id="client-name"
-                      value={clientName}
-                      onChange={(event) => setClientName(event.target.value)}
-                      placeholder="Client contact or company"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="client-email">Client email</Label>
-                    <Input
-                      id="client-email"
-                      type="email"
-                      value={clientEmail}
-                      onChange={(event) => setClientEmail(event.target.value)}
-                      placeholder="client@company.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="client-password">Client password</Label>
-                    <Input
-                      id="client-password"
-                      type="password"
-                      value={clientPassword}
-                      onChange={(event) => setClientPassword(event.target.value)}
-                      placeholder="Set a temporary portal password"
-                      required
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="space-y-3">
                 <div>
@@ -456,7 +448,7 @@ export default function NewProjectPage() {
                 <div className="space-y-4">
                   {timelineItems.map((item, index) => (
                     <div
-                      key={`${index}-${item.title}`}
+                      key={`timeline-milestone-${index}`}
                       className="rounded-xl border border-border bg-secondary/25 p-4"
                     >
                       <div className="mb-4 flex items-center justify-between gap-3">
@@ -484,17 +476,19 @@ export default function NewProjectPage() {
                             placeholder="Kickoff, survey, design review..."
                           />
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor={`timeline-date-${index}`}>Date</Label>
-                          <Input
-                            id={`timeline-date-${index}`}
-                            type="date"
-                            value={item.date}
-                            onChange={(event) =>
-                              updateTimelineItem(index, "date", event.target.value)
-                            }
-                          />
-                        </div>
+                        {index === 0 && (
+                          <div className="space-y-2">
+                            <Label htmlFor={`timeline-date-${index}`}>Date</Label>
+                            <Input
+                              id={`timeline-date-${index}`}
+                              type="date"
+                              value={item.date}
+                              onChange={(event) =>
+                                updateTimelineItem(index, "date", event.target.value)
+                              }
+                            />
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <Label>Status</Label>
                           <Select
@@ -588,7 +582,7 @@ export default function NewProjectPage() {
                 <p className="text-sm font-medium">Timeline preview</p>
                 <div className="mt-3 space-y-3">
                   {timelineItems.map((item, index) => (
-                    <div key={`${item.title}-${index}`} className="rounded-lg border border-border p-3">
+                    <div key={`preview-milestone-${index}`} className="rounded-lg border border-border p-3">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-sm font-semibold">
                           {item.title || `Milestone ${index + 1}`}

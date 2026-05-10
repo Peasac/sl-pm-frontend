@@ -89,7 +89,14 @@ export default function OverviewPage() {
               <CardTitle className="text-base">Timeline</CardTitle>
               <p className="text-xs text-muted-foreground">Key milestones across the program</p>
             </div>
-            <Badge variant="outline">Vertical</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">Vertical</Badge>
+              {canEdit && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/projects/${project?.id}/edit`}>Edit timeline</Link>
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="relative mt-6 mx-auto max-w-3xl">
@@ -112,7 +119,7 @@ export default function OverviewPage() {
 
                       {/* Mobile: stacked right of line */}
                       <div className="md:hidden ms-16">
-                        <StepCard index={i} label={item.title} align={leftSide ? "left" : "right"} />
+                        <StepCard index={i} label={item.title} status={item.status} date={item.date} align={leftSide ? "left" : "right"} />
                       </div>
 
                       {/* Desktop: alternating sides */}
@@ -120,7 +127,7 @@ export default function OverviewPage() {
                         {leftSide ? (
                           <>
                             <div className="flex justify-end pe-12">
-                              <StepCard index={i} label={item.title} align="right" />
+                              <StepCard index={i} label={item.title} status={item.status} date={item.date} align="right" />
                             </div>
                             <div />
                           </>
@@ -128,7 +135,7 @@ export default function OverviewPage() {
                           <>
                             <div />
                             <div className="ps-12">
-                              <StepCard index={i} label={item.title} align="left" />
+                              <StepCard index={i} label={item.title} status={item.status} date={item.date} align="left" />
                             </div>
                           </>
                         )}
@@ -148,23 +155,41 @@ export default function OverviewPage() {
 function StepCard({
   index,
   label,
+  status,
+  date,
   align = "left",
 }: {
   index: number;
   label: string;
+  status: string;
+  date?: string;
   align?: "left" | "right";
 }) {
+  let colorClasses = "bg-accent/15 ring-1 ring-accent/40 text-accent shadow-[0_0_18px_-4px_rgba(34,211,238,0.35)]";
+  let textColorClasses = "text-accent";
+
+  if (status === "Completed") {
+    colorClasses = "bg-emerald-500/15 ring-1 ring-emerald-500/40 text-emerald-500 shadow-[0_0_18px_-4px_rgba(16,185,129,0.35)]";
+    textColorClasses = "text-emerald-500";
+  } else if (status === "In Progress") {
+    colorClasses = "bg-amber-500/15 ring-1 ring-amber-500/40 text-amber-500 shadow-[0_0_18px_-4px_rgba(245,158,11,0.35)]";
+    textColorClasses = "text-amber-500";
+  }
+
   return (
     <div className={`p-4 max-w-sm ${align === "right" ? "text-end" : "text-start"}`}>
       <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse" : "flex-row"}`}>
-        <div className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-accent/15 ring-1 ring-accent/40 text-accent shadow-[0_0_18px_-4px_rgba(34,211,238,0.35)]">
+        <div className={`inline-flex h-11 w-11 items-center justify-center rounded-lg ${colorClasses}`}>
           <span className="text-sm font-bold">{String(index + 1).padStart(2, "0")}</span>
         </div>
         <div>
-          <div className="font-display text-xs font-bold uppercase tracking-[0.2em] text-accent">
+          <div className={`font-display text-xs font-bold uppercase tracking-[0.2em] ${textColorClasses}`}>
             Step {String(index + 1).padStart(2, "0")}
           </div>
           <div className="mt-0.5 font-display text-lg font-bold text-foreground">{label}</div>
+          {date && (status === "In Progress" || status === "Completed") && (
+            <div className="text-xs text-muted-foreground mt-0.5">{date}</div>
+          )}
         </div>
       </div>
     </div>

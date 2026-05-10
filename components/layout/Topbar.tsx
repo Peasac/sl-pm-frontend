@@ -356,7 +356,7 @@ export function Topbar() {
               <SelectContent>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
-                    {project.summary.client} - {project.name}
+                     {project.name}
                   </SelectItem>
                 ))}
               </SelectContent>

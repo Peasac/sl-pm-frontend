@@ -98,8 +98,9 @@ export function TaskTable() {
   const allStageTasksComplete =
     allStageTasks.length > 0 && allStageTasks.every((task) => task.status === "Completed");
   const isStageComplete = selectedStage?.status === "Completed";
+  const [isSubmittingTask, setIsSubmittingTask] = React.useState(false);
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!form.name.trim() || !form.category.trim() || !form.assignee.trim()) {
       return;
     }
@@ -110,7 +111,8 @@ export function TaskTable() {
 
     const currentStep = form.status === "Completed" ? 2 : form.status === "In Progress" ? 1 : 0;
 
-    addTask({
+    setIsSubmittingTask(true);
+    await addTask({
       name: form.name.trim(),
       category: form.category.trim(),
       assignee: form.assignee.trim(),
@@ -120,6 +122,7 @@ export function TaskTable() {
     });
 
     setForm({ name: "", category: "", assignee: "", status: "In Progress" });
+    setIsSubmittingTask(false);
     setOpen(false);
   };
 
@@ -284,7 +287,9 @@ export function TaskTable() {
                       <Button variant="secondary" onClick={() => setOpen(false)}>
                         Cancel
                       </Button>
-                      <Button onClick={handleAddTask}>Add task</Button>
+                      <Button onClick={handleAddTask} disabled={isSubmittingTask}>
+                        {isSubmittingTask ? "Adding task..." : "Add task"}
+                      </Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>

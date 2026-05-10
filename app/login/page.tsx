@@ -7,6 +7,7 @@ import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
 
 import { useAppContext } from "@/components/providers/AppProvider";
 import { Input } from "@/components/ui/input";
+import PasswordInput from "@/components/ui/password-input";
 import { Button } from "@/components/ui/button";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -50,6 +51,7 @@ export default function LoginPage() {
           email: data.user.email,
           role: data.user.role as any,
             title: data.user.title,
+            requiresPasswordChange: Boolean(data.user.requiresPasswordChange),
         });
         router.push("/overview");
       } else {
@@ -65,7 +67,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen w-full flex items-center justify-center px-4 py-9"
+      className="relative min-h-screen w-full flex items-center justify-center px-4 py-9 overflow-hidden"
       style={{
         backgroundColor: "#0a1120",
         backgroundImage:
@@ -73,6 +75,18 @@ export default function LoginPage() {
         backgroundSize: "40px 40px",
       }}
     >
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage:
+            "url('https://www.ibm.com/adobe/dynamicmedia/deliver/dm-aid--817da868-3731-402e-8579-050306016562/22-27-p-gorodenkoff-549.jpg?preferwebp=true')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+        aria-hidden
+      />
+      <div className="absolute inset-0 bg-[#070d1a]/75" aria-hidden />
+
       {/* Outer glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
@@ -199,20 +213,19 @@ export default function LoginPage() {
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-200/90">
                   Password
                 </label>
-                <div className="relative">
-                  <Lock
-                    size={15}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"
-                  />
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    className="h-11 rounded-xl border-white/[0.14] bg-white/4 pl-11 pr-4 text-sm text-white placeholder:text-slate-300 focus-visible:border-sky-300 focus-visible:bg-white/[0.07] focus-visible:ring-4 focus-visible:ring-sky-300/8"
-                  />
-                </div>
+                        <div className="relative">
+                          <Lock
+                            size={15}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"
+                          />
+                          <PasswordInput
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="••••••••"
+                            required
+                            className="h-11 rounded-xl border-white/[0.14] bg-white/4 pl-11 pr-4 text-sm text-white placeholder:text-slate-300 focus-visible:border-sky-300 focus-visible:bg-white/[0.07] focus-visible:ring-4 focus-visible:ring-sky-300/8"
+                          />
+                        </div>
               </div>
 
               {!API_URL && (

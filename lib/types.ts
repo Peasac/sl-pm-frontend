@@ -120,6 +120,7 @@ export type Project = {
   name: string;
   summary: ProjectSummary;
   clientAccess: ProjectClientAccess[];
+  clientAccessIds?: string[];
   overviewStats: OverviewStat[];
   timelineItems: TimelineItem[];
   scopeItems: ScopeItem[];

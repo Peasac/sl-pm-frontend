@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 
 import { Hero } from "@/components/dashboard/Hero";
@@ -8,6 +9,7 @@ import { StatsCards } from "@/components/dashboard/StatsCards";
 import { useAppContext } from "@/components/providers/AppProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import ProjectClients from "@/components/dashboard/ProjectClients";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TimelineItem } from "@/lib/types";
 
@@ -26,12 +28,6 @@ const quickLinks = [
 
 export default function OverviewPage() {
   const { canEdit, role, user, project } = useAppContext();
-  const portalLabel =
-    role === "admin"
-      ? "Admin Portal"
-      : role === "member"
-        ? "Member Portal"
-        : "Client Portal";
   const timelineItems = project?.timelineItems ?? [];
   const { projects } = useAppContext();
 
@@ -63,6 +59,7 @@ export default function OverviewPage() {
       <Hero />
       <StatsCards />
       <ProjectMembers />
+      <ProjectClients />
 
       <div className="grid gap-4 md:grid-cols-2 reveal-up reveal-delay-1">
         {quickLinks.map((link) => (
@@ -102,7 +99,7 @@ export default function OverviewPage() {
             <div className="relative mt-6 mx-auto max-w-3xl">
               {/* Vertical glowing line */}
               <div
-                className="absolute top-0 bottom-0 w-[2px] timeline-line start-7 md:start-1/2 -translate-x-1/2 rtl:translate-x-1/2"
+                className="absolute top-0 bottom-0 w-0.5 timeline-line inset-s-7 md:inset-s-1/2 -translate-x-1/2 rtl:translate-x-1/2"
                 aria-hidden
               />
 
@@ -113,7 +110,7 @@ export default function OverviewPage() {
                     <li key={item.id} className="relative">
                       {/* Glowing node */}
                       <div
-                        className="absolute top-3 h-4 w-4 rounded-full timeline-node start-7 md:start-1/2 -translate-x-1/2 rtl:translate-x-1/2"
+                        className="absolute top-3 h-4 w-4 rounded-full timeline-node inset-s-7 md:inset-s-1/2 -translate-x-1/2 rtl:translate-x-1/2"
                         aria-hidden
                       />
 
@@ -148,6 +145,8 @@ export default function OverviewPage() {
           </CardContent>
         </Card>
       </div>
+
+        {/* ProjectClients component handles the add-client dialog */}
     </div>
   );
 }
@@ -176,6 +175,13 @@ function StepCard({
     textColorClasses = "text-amber-500";
   }
 
+  const badgeClasses =
+    status === "Completed"
+      ? "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700"
+      : status === "In Progress"
+      ? "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-amber-50 text-amber-700"
+      : "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground";
+
   return (
     <div className={`p-4 max-w-sm ${align === "right" ? "text-end" : "text-start"}`}>
       <div className={`flex items-center gap-3 ${align === "right" ? "flex-row-reverse" : "flex-row"}`}>
@@ -183,8 +189,13 @@ function StepCard({
           <span className="text-sm font-bold">{String(index + 1).padStart(2, "0")}</span>
         </div>
         <div>
-          <div className={`font-display text-xs font-bold uppercase tracking-[0.2em] ${textColorClasses}`}>
-            Step {String(index + 1).padStart(2, "0")}
+          <div className={`flex items-center gap-3 ${align === "right" ? "justify-end" : "justify-start"}`}>
+            <div className={`font-display text-xs font-bold uppercase tracking-[0.2em] ${textColorClasses}`}>
+              Step {String(index + 1).padStart(2, "0")}
+            </div>
+            <div className={badgeClasses} aria-hidden={false}>
+              {status}
+            </div>
           </div>
           <div className="mt-0.5 font-display text-lg font-bold text-foreground">{label}</div>
           {date && (status === "In Progress" || status === "Completed") && (

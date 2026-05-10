@@ -201,6 +201,9 @@ const mapProjectFromApi = (projectData: any): Project => {
 
   const clientName =
     projectData.summary?.client || clients[0]?.name || projectData.name || "Client";
+  const clientAccessIds = (projectData.clientAccessIds ?? [])
+    .map((client: any) => client?._id ?? client?.id ?? client)
+    .filter(Boolean);
 
   return normalizeProjectClientAccess({
     id: projectData._id ?? createId("project"),
@@ -222,6 +225,7 @@ const mapProjectFromApi = (projectData: any): Project => {
       email: client.email,
       password: "",
     })),
+    clientAccessIds,
     overviewStats: projectData.overviewStats ?? [],
     timelineItems,
     scopeItems: [],
@@ -323,6 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             email: data.user.email,
             role: data.user.role,
             title: data.user.title,
+            requiresPasswordChange: Boolean(data.user.requiresPasswordChange),
           });
           setAuthError(null);
         }
@@ -768,6 +773,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...selectedExistingClients.map(c => ({ name: c.name, email: c.email, password: c.password })),
         ...project.client.newClients.map(c => ({ name: c.name, email: c.email, password: c.password }))
       ],
+      clientAccessIds: selectedExistingClients.map((client) => client.id),
       summary: {
         name: project.name,
         client: selectedExistingClients[0]?.name || project.client.newClients[0]?.name || "Client",

@@ -76,6 +76,7 @@ function PhotosPageContent() {
   const [uploadLabelLocked, setUploadLabelLocked] = React.useState(false);
   const [uploadVariant, setUploadVariant] = React.useState<TaskMediaVariant>("before");
   const uploadInputRef = React.useRef<HTMLInputElement | null>(null);
+  const importInputRef = React.useRef<HTMLInputElement | null>(null);
 
   React.useEffect(() => {
     if (taskParam) {
@@ -136,15 +137,30 @@ function PhotosPageContent() {
     setIsUploadDialogOpen(false);
   };
 
-  const openUploadDialog = (label?: string) => {
+  const openUploadDialog = (
+    label?: string,
+    initialFiles?: File[],
+    variant: TaskMediaVariant = "before"
+  ) => {
     setUploadLabel(label ?? "");
     setUploadLabelLocked(Boolean(label));
-    setUploadVariant("before");
-    setSelectedFiles([]);
+    setUploadVariant(variant);
+    setSelectedFiles(initialFiles ?? []);
     if (uploadInputRef.current) {
       uploadInputRef.current.value = "";
     }
     setIsUploadDialogOpen(true);
+  };
+
+  const handleImportFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (files.length === 0) {
+      return;
+    }
+
+    // Imported files are typically ad-hoc evidence, so default to "other" grouping.
+    openUploadDialog(undefined, files, "other");
+    event.target.value = "";
   };
 
   const handleAddMedia = () => {
@@ -373,51 +389,71 @@ function PhotosPageContent() {
                       </div>
                     </div>
 
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    {group.before.length === 0 && group.after.length === 0 ? (
                       <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
                         <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold">Before</p>
-                          <Badge variant="outline">{group.before.length}</Badge>
+                          <p className="text-sm font-semibold">Attachments</p>
+                          <Badge variant="outline">{group.other.length}</Badge>
                         </div>
-                        {group.before.length > 0 ? (
-                          <div className="space-y-3">
-                            {group.before.map((media) => (
-                              <div key={media.id} className="space-y-2">
-                                {renderMediaPreview(media, activeTask?.id || "")}
-                                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                  <Badge variant="outline">{media.type}</Badge>
-                                  <span>{media.label}</span>
-                                </div>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                          {group.other.map((media) => (
+                            <div key={media.id} className="space-y-2">
+                              {renderMediaPreview(media, activeTask?.id || "")}
+                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                                <Badge variant="outline">{media.type}</Badge>
+                                <span>{media.label}</span>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No before media yet.</p>
-                        )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    ) : (
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold">Before</p>
+                            <Badge variant="outline">{group.before.length}</Badge>
+                          </div>
+                          {group.before.length > 0 ? (
+                            <div className="space-y-3">
+                              {group.before.map((media) => (
+                                <div key={media.id} className="space-y-2">
+                                  {renderMediaPreview(media, activeTask?.id || "")}
+                                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                                    <Badge variant="outline">{media.type}</Badge>
+                                    <span>{media.label}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No before media yet.</p>
+                          )}
+                        </div>
 
-                      <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold">After</p>
-                          <Badge variant="outline">{group.after.length}</Badge>
-                        </div>
-                        {group.after.length > 0 ? (
-                          <div className="space-y-3">
-                            {group.after.map((media) => (
-                              <div key={media.id} className="space-y-2">
-                                {renderMediaPreview(media, activeTask?.id || "")}
-                                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                  <Badge variant="outline">{media.type}</Badge>
-                                  <span>{media.label}</span>
-                                </div>
-                              </div>
-                            ))}
+                        <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold">After</p>
+                            <Badge variant="outline">{group.after.length}</Badge>
                           </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No after media yet.</p>
-                        )}
+                          {group.after.length > 0 ? (
+                            <div className="space-y-3">
+                              {group.after.map((media) => (
+                                <div key={media.id} className="space-y-2">
+                                  {renderMediaPreview(media, activeTask?.id || "")}
+                                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                                    <Badge variant="outline">{media.type}</Badge>
+                                    <span>{media.label}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No after media yet.</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {group.other.length > 0 && (
                       <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
@@ -447,9 +483,22 @@ function PhotosPageContent() {
           {canUpload && activeTask && (
             <div className="space-y-4 border-t border-border pt-6">
               <p className="text-sm font-semibold">Add media to this task</p>
-              <Button type="button" onClick={() => openUploadDialog()}>
-                Add media
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={() => openUploadDialog()}>
+                  Add media
+                </Button>
+                <Button type="button" variant="outline" onClick={() => importInputRef.current?.click()}>
+                  Import files
+                </Button>
+                <Input
+                  ref={importInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  className="hidden"
+                  onChange={handleImportFiles}
+                />
+              </div>
             </div>
           )}
 

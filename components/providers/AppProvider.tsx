@@ -1727,6 +1727,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ...project,
           taskMedia: [mapped, ...project.taskMedia.filter((item) => item.id !== previewId)],
         }));
+      } else {
+        console.error("Failed to upload media:", payload?.message || response.statusText);
       }
     } catch (error) {
       console.error("Failed to upload media:", error);

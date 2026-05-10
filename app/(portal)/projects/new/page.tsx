@@ -556,7 +556,7 @@ export default function NewProjectPage() {
                   {projectName || "Untitled project"}
                 </p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Client: {clientMode === "existing" ? (clientAccounts.find((account) => account.email === selectedClientEmail)?.name ?? "Not selected") : (clientName || "Not set")}
+                  Clients: {selectedClientEmails.length + newClients.length === 0 ? "Not selected" : `${selectedClientEmails.length + newClients.length} assigned`}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   Start date: {startDate || "Not set"}

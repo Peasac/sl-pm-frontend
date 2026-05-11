@@ -368,7 +368,7 @@ export function Topbar() {
         ) : (
           <div className="w-full max-w-xs rounded-md border border-border bg-card/70 px-3 py-2 text-sm text-muted-foreground">
             {activeProject
-              ? `${activeProject.summary.client} - ${activeProject.name}`
+              ? `${activeProject.name}`
               : "Project"}
           </div>
         )}

@@ -11,6 +11,7 @@ import type {
   Task,
   TaskComment,
   TaskMediaItem,
+  TaskMediaComment,
   TaskStatus,
   TimelineStatus,
   User,
@@ -139,6 +140,11 @@ type AppContextValue = {
     label: string;
     file: File;
   }) => Promise<void>;
+  addTaskMediaComment: (
+    taskId: string,
+    mediaId: string,
+    comment: Omit<TaskMediaComment, "id" | "createdAt">
+  ) => Promise<void>;
   addProjectMember: (memberId: string) => void;
   removeProjectMember: (memberId: string) => void;
   updateProjectDetails: (projectId: string, data: any) => Promise<void>;
@@ -265,6 +271,12 @@ const mapMediaFromApi = (mediaData: any): TaskMediaItem => ({
   url: mediaData.url,
   label: mediaData.label,
   createdAt: formatDisplayDate(mediaData.createdAt),
+  comments: (mediaData.comments ?? []).map((comment: any) => ({
+    id: comment._id ?? createId("media-comment"),
+    author: comment.authorId?.name ?? "Unknown",
+    message: comment.message,
+    createdAt: formatDisplayDate(comment.createdAt),
+  })),
 });
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -621,8 +633,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const role: Role = user?.role ?? "client";
   const canEdit = role === "admin";
-  const canComment = true;
-  const canUpload = role === "admin" || role === "member";
+  const canComment = Boolean(user);
+  const canUpload = Boolean(user);
   const canMarkDone = role === "admin";
   const memberName = role === "member" ? (user?.name ?? null) : null;
 
@@ -1690,6 +1702,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           variant: media.variant,
           url: previewUrl,
           label: media.label,
+          comments: [],
           createdAt: new Date().toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -1734,6 +1747,99 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to upload media:", error);
     }
   }, [API_BASE, activeProjectId, updateProject]);
+
+  const addTaskMediaComment = React.useCallback(
+    async (
+      taskId: string,
+      mediaId: string,
+      comment: Omit<TaskMediaComment, "id" | "createdAt">
+    ) => {
+      if (!activeProjectId) {
+        return;
+      }
+
+      const optimisticId = createId("media-comment");
+      updateProject(activeProjectId, (project) => ({
+        ...project,
+        taskMedia: project.taskMedia.map((item) =>
+          item.id === mediaId
+            ? {
+                ...item,
+                comments: [
+                  {
+                    id: optimisticId,
+                    author: comment.author,
+                    message: comment.message,
+                    createdAt: new Date().toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    }),
+                  },
+                  ...(item.comments ?? []),
+                ],
+              }
+            : item
+        ),
+      }));
+
+      try {
+        const token = window.localStorage.getItem("slpm:token");
+        if (!token || !API_BASE) {
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE}/projects/${activeProjectId}/tasks/${taskId}/media/${mediaId}/comments`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ message: comment.message }),
+          }
+        );
+
+        const payload = await response.json();
+        if (response.ok && payload.success && payload.data) {
+          const mapped = mapMediaFromApi(payload.data);
+          updateProject(activeProjectId, (project) => ({
+            ...project,
+            taskMedia: project.taskMedia.map((item) => (item.id === mediaId ? mapped : item)),
+          }));
+          return;
+        }
+
+        updateProject(activeProjectId, (project) => ({
+          ...project,
+          taskMedia: project.taskMedia.map((item) =>
+            item.id === mediaId
+              ? {
+                  ...item,
+                  comments: (item.comments ?? []).filter((existing) => existing.id !== optimisticId),
+                }
+              : item
+          ),
+        }));
+        console.error("Failed to add media comment:", payload?.message || response.statusText);
+      } catch (error) {
+        updateProject(activeProjectId, (project) => ({
+          ...project,
+          taskMedia: project.taskMedia.map((item) =>
+            item.id === mediaId
+              ? {
+                  ...item,
+                  comments: (item.comments ?? []).filter((existing) => existing.id !== optimisticId),
+                }
+              : item
+          ),
+        }));
+        console.error("Failed to add media comment:", error);
+      }
+    },
+    [API_BASE, activeProjectId, updateProject]
+  );
 
   // For member role, filter projects to only those they are assigned to
   const visibleProjects = React.useMemo(() => {
@@ -1790,6 +1896,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addComment,
       addContact,
       addTaskMedia,
+      addTaskMediaComment,
       addProjectMember,
       removeProjectMember,
       updateProjectDetails,

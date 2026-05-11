@@ -26,12 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { TaskMediaItem, TaskMediaVariant } from "@/lib/types";
+import type { TaskMediaComment, TaskMediaItem, TaskMediaVariant } from "@/lib/types";
 
 const mediaVariantOptions: TaskMediaVariant[] = ["before", "after", "other"];
 
 function PhotosPageContent() {
-  const { project, tasks, taskMedia, addTaskMedia, canUpload, role, memberName } = useAppContext();
+  const { project, tasks, taskMedia, addTaskMedia, addTaskMediaComment, canUpload, role, memberName, user } = useAppContext();
   const timelineItems = project?.timelineItems ?? [];
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -64,7 +64,15 @@ function PhotosPageContent() {
       : timelineItems;
 
   const [activeTaskId, setActiveTaskId] = React.useState<string | null>(null);
-  const [viewerMedia, setViewerMedia] = React.useState<{ taskId: string; mediaId: string; url: string; label: string } | null>(null);
+  const [viewerMedia, setViewerMedia] = React.useState<{
+    taskId: string;
+    mediaId: string;
+    url: string;
+    label: string;
+    group: TaskMediaItem[];
+    index: number;
+    comments: TaskMediaComment[];
+  } | null>(null);
   const [savedMediaUrls, setSavedMediaUrls] = React.useState<Record<string, string>>({});
   const [isUploadDialogOpen, setIsUploadDialogOpen] = React.useState(false);
   const [mediaForm, setMediaForm] = React.useState({
@@ -85,6 +93,28 @@ function PhotosPageContent() {
       setActiveTaskId(null);
     }
   }, [taskParam]);
+
+  React.useEffect(() => {
+    if (!viewerMedia) {
+      return;
+    }
+
+    const current = taskMedia.find((item) => item.id === viewerMedia.mediaId);
+    if (!current) {
+      return;
+    }
+
+    setViewerMedia((prev) =>
+      prev
+        ? {
+            ...prev,
+            url: current.url,
+            label: current.label,
+            comments: current.comments ?? [],
+          }
+        : prev
+    );
+  }, [taskMedia, viewerMedia?.mediaId]);
 
   const activeTask = tasks.find((task) => task.id === activeTaskId) ?? taskFromParam ?? null;
   const mediaItems = React.useMemo(
@@ -187,7 +217,50 @@ function PhotosPageContent() {
     setIsUploadDialogOpen(false);
   };
 
-  const renderMediaPreview = (media: TaskMediaItem, taskId: string) => {
+  const openMediaViewer = (taskId: string, group: TaskMediaItem[], index: number) => {
+    const media = group[index];
+    if (!media) {
+      return;
+    }
+
+    setViewerMedia({
+      taskId,
+      mediaId: media.id,
+      url: media.url,
+      label: media.label,
+      group,
+      index,
+      comments: media.comments ?? [],
+    });
+  };
+
+  const handleNavigateViewer = (index: number) => {
+    setViewerMedia((previous) => {
+      if (!previous) {
+        return previous;
+      }
+
+      const next = previous.group[index];
+      if (!next) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        index,
+        mediaId: next.id,
+        url: next.url,
+        label: next.label,
+        comments: next.comments ?? [],
+      };
+    });
+  };
+
+  const renderMediaPreview = (
+    media: TaskMediaItem,
+    taskId: string,
+    onClick?: () => void
+  ) => {
     if (media.type === "video") {
       return (
         <video
@@ -203,7 +276,7 @@ function PhotosPageContent() {
         src={media.url}
         alt={media.label}
         className="h-40 w-full rounded-lg border border-border object-cover cursor-pointer hover:opacity-80 transition-opacity"
-        onClick={() => setViewerMedia({ taskId, mediaId: media.id, url: media.url, label: media.label })}
+        onClick={onClick}
       />
     );
   };
@@ -398,23 +471,22 @@ function PhotosPageContent() {
                     </div>
 
                     {group.before.length === 0 && group.after.length === 0 ? (
-                      <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold">Attachments</p>
-                          <Badge variant="outline">{group.other.length}</Badge>
-                        </div>
+                      group.other.length > 0 && (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {group.other.map((media) => (
+                          {group.other.map((media, index) => (
                             <div key={media.id} className="space-y-2">
-                              {renderMediaPreview(media, activeTask?.id || "")}
-                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                <Badge variant="outline">{media.type}</Badge>
+                              {renderMediaPreview(
+                                media,
+                                activeTask?.id || "",
+                                () => openMediaViewer(activeTask?.id || "", group.other, index)
+                              )}
+                              <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                                 <span>{media.label}</span>
                               </div>
                             </div>
                           ))}
                         </div>
-                      </div>
+                      )
                     ) : (
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
@@ -424,11 +496,14 @@ function PhotosPageContent() {
                           </div>
                           {group.before.length > 0 ? (
                             <div className="space-y-3">
-                              {group.before.map((media) => (
+                              {group.before.map((media, index) => (
                                 <div key={media.id} className="space-y-2">
-                                  {renderMediaPreview(media, activeTask?.id || "")}
-                                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                    <Badge variant="outline">{media.type}</Badge>
+                                  {renderMediaPreview(
+                                    media,
+                                    activeTask?.id || "",
+                                    () => openMediaViewer(activeTask?.id || "", group.before, index)
+                                  )}
+                                  <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                                     <span>{media.label}</span>
                                   </div>
                                 </div>
@@ -446,11 +521,14 @@ function PhotosPageContent() {
                           </div>
                           {group.after.length > 0 ? (
                             <div className="space-y-3">
-                              {group.after.map((media) => (
+                              {group.after.map((media, index) => (
                                 <div key={media.id} className="space-y-2">
-                                  {renderMediaPreview(media, activeTask?.id || "")}
-                                  <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                    <Badge variant="outline">{media.type}</Badge>
+                                  {renderMediaPreview(
+                                    media,
+                                    activeTask?.id || "",
+                                    () => openMediaViewer(activeTask?.id || "", group.after, index)
+                                  )}
+                                  <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
                                     <span>{media.label}</span>
                                   </div>
                                 </div>
@@ -463,23 +541,20 @@ function PhotosPageContent() {
                       </div>
                     )}
 
-                    {group.other.length > 0 && (
-                      <div className="space-y-3 rounded-xl border border-border bg-card/80 p-4">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold">Other</p>
-                          <Badge variant="outline">{group.other.length}</Badge>
-                        </div>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                          {group.other.map((media) => (
-                            <div key={media.id} className="space-y-2">
-                              {renderMediaPreview(media, activeTask?.id || "")}
-                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                <Badge variant="outline">{media.type}</Badge>
-                                <span>{media.label}</span>
-                              </div>
+                    {group.other.length > 0 && group.before.length + group.after.length > 0 && (
+                      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {group.other.map((media, index) => (
+                          <div key={media.id} className="space-y-2">
+                            {renderMediaPreview(
+                              media,
+                              activeTask?.id || "",
+                              () => openMediaViewer(activeTask?.id || "", group.other, index)
+                            )}
+                            <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                              <span>{media.label}</span>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -621,6 +696,22 @@ function PhotosPageContent() {
           projectId={project?.id ?? ""}
           taskId={viewerMedia.taskId}
           mediaId={viewerMedia.mediaId}
+          mediaGroup={viewerMedia.group.map((media) => ({
+            id: media.id,
+            url: media.url,
+            label: media.label,
+            comments: media.comments ?? [],
+          }))}
+          currentIndex={viewerMedia.index}
+          comments={viewerMedia.comments}
+          canComment={Boolean(user)}
+          onNavigate={handleNavigateViewer}
+          onAddComment={async (message) => {
+            await addTaskMediaComment(viewerMedia.taskId, viewerMedia.mediaId, {
+              author: user?.name ?? "Photo user",
+              message,
+            });
+          }}
           onSave={async (imageUrl) => {
             setSavedMediaUrls((prev) => ({
               ...prev,

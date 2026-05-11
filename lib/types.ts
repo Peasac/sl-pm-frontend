@@ -73,6 +73,13 @@ export type TaskMediaType = "image" | "video";
 
 export type TaskMediaVariant = "before" | "after" | "other";
 
+export type TaskMediaComment = {
+  id: string;
+  author: string;
+  message: string;
+  createdAt: string;
+};
+
 export type TaskMediaItem = {
   id: string;
   taskId: string;
@@ -81,6 +88,7 @@ export type TaskMediaItem = {
   url: string;
   label: string;
   createdAt: string;
+  comments?: TaskMediaComment[];
 };
 
 export type ContactTeam = "Starlink Team" | "Client Team";

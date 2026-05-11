@@ -2,8 +2,10 @@
 
 import * as React from "react";
 import { createPortal } from "react-dom";
-import { X, Pen, RotateCcw, Save, Square, Circle, Type, Plus, Minus } from "lucide-react";
+import { X, Pen, RotateCcw, Save, Square, Circle, Type, Plus, Minus, ChevronLeft, ChevronRight, MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import type { TaskMediaComment } from "@/lib/types";
 
 interface PhotoViewerProps {
   src: string;
@@ -13,6 +15,12 @@ interface PhotoViewerProps {
   taskId: string;
   mediaId: string;
   onSave?: (imageUrl: string) => Promise<void>;
+  mediaGroup?: Array<{ id: string; url: string; label: string; comments?: TaskMediaComment[] }>;
+  currentIndex?: number;
+  onNavigate?: (index: number) => void;
+  comments?: TaskMediaComment[];
+  canComment?: boolean;
+  onAddComment?: (message: string) => Promise<void>;
 }
 
 type DrawMode = "none" | "pen" | "eraser" | "line" | "rectangle" | "circle" | "text";
@@ -25,6 +33,12 @@ export function PhotoViewer({
   taskId,
   mediaId,
   onSave,
+  mediaGroup = [],
+  currentIndex = 0,
+  onNavigate,
+  comments = [],
+  canComment = false,
+  onAddComment,
 }: PhotoViewerProps) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const imageRef = React.useRef<HTMLImageElement>(null);
@@ -41,6 +55,9 @@ export function PhotoViewer({
   const [isImageLoaded, setIsImageLoaded] = React.useState(false);
   const [imageError, setImageError] = React.useState<string | null>(null);
   const [zoom, setZoom] = React.useState(1.0);
+  const [showComments, setShowComments] = React.useState(false);
+  const [commentMessage, setCommentMessage] = React.useState("");
+  const [isPostingComment, setIsPostingComment] = React.useState(false);
   const proxySrc = React.useMemo(
     () => `/api/media-proxy?url=${encodeURIComponent(src)}`,
     [src]
@@ -195,6 +212,41 @@ export function PhotoViewer({
     }
   };
 
+  const hasGroupedMedia = mediaGroup.length > 1 && typeof onNavigate === "function";
+
+  const handlePrevMedia = () => {
+    if (!hasGroupedMedia) {
+      return;
+    }
+
+    const nextIndex = (currentIndex - 1 + mediaGroup.length) % mediaGroup.length;
+    onNavigate?.(nextIndex);
+  };
+
+  const handleNextMedia = () => {
+    if (!hasGroupedMedia) {
+      return;
+    }
+
+    const nextIndex = (currentIndex + 1) % mediaGroup.length;
+    onNavigate?.(nextIndex);
+  };
+
+  const handleAddComment = async () => {
+    if (!onAddComment || !commentMessage.trim()) {
+      return;
+    }
+
+    setIsPostingComment(true);
+    try {
+      await onAddComment(commentMessage.trim());
+      setCommentMessage("");
+      setShowComments(true);
+    } finally {
+      setIsPostingComment(false);
+    }
+  };
+
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -272,20 +324,87 @@ export function PhotoViewer({
       >
         {/* Header */}
         <div 
-          className="flex items-center justify-between p-4 border-b border-neutral-700"
+          className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-neutral-700"
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 className="text-white font-semibold text-lg">{alt}</h2>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClose();
-            }}
-            className="p-1 hover:bg-neutral-800 rounded transition"
-          >
-            <X className="w-6 h-6 text-white" />
-          </button>
+          <div className="min-w-0">
+            <h2 className="truncate text-white font-semibold text-lg">{alt}</h2>
+            {hasGroupedMedia && (
+              <p className="text-xs text-neutral-400">
+                {currentIndex + 1} of {mediaGroup.length}
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {hasGroupedMedia && (
+              <>
+                <Button variant="outline" size="icon" onClick={handlePrevMedia} aria-label="Previous photo">
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={handleNextMedia} aria-label="Next photo">
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+
+            {canComment && (
+              <Button
+                variant={showComments ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowComments((prev) => !prev)}
+              >
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Comments ({comments.length})
+              </Button>
+            )}
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              className="p-1 hover:bg-neutral-800 rounded transition"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+          </div>
         </div>
+
+        {showComments && canComment && (
+          <div className="border-b border-neutral-700 bg-neutral-950/70 p-4 space-y-4">
+            <div className="max-h-40 space-y-3 overflow-y-auto pr-1">
+              {comments.length === 0 ? (
+                <p className="text-sm text-neutral-400">No comments yet.</p>
+              ) : (
+                comments.map((comment) => (
+                  <div key={comment.id} className="rounded-lg border border-neutral-700 bg-neutral-900/80 p-3">
+                    <div className="flex items-center justify-between gap-3 text-xs text-neutral-400">
+                      <span>{comment.author}</span>
+                      <span>{comment.createdAt}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-neutral-100">{comment.message}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Textarea
+                value={commentMessage}
+                onChange={(event) => setCommentMessage(event.target.value)}
+                placeholder="Add a comment about this photo"
+                className="min-h-[90px] bg-neutral-900 text-neutral-100"
+              />
+              <div className="flex justify-end">
+                <Button onClick={handleAddComment} disabled={isPostingComment || !commentMessage.trim()} size="sm">
+                  <Send className="mr-2 h-4 w-4" />
+                  {isPostingComment ? "Posting..." : "Post comment"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Canvas */}
         <div 

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import { useAppContext } from "@/components/providers/AppProvider";
 import { PhotoViewer } from "@/components/photos/PhotoViewer";
@@ -31,7 +31,7 @@ import type { TaskMediaComment, TaskMediaItem, TaskMediaVariant } from "@/lib/ty
 const mediaVariantOptions: TaskMediaVariant[] = ["before", "after", "other"];
 
 function PhotosPageContent() {
-  const { project, tasks, taskMedia, addTaskMedia, addTaskMediaComment, canUpload, role, memberName, user } = useAppContext();
+  const { project, tasks, taskMedia, addTaskMedia, deleteTaskMedia, addTaskMediaComment, canUpload, role, memberName, user, canEdit } = useAppContext();
   const timelineItems = project?.timelineItems ?? [];
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -256,6 +256,18 @@ function PhotosPageContent() {
     });
   };
 
+  const handleDeleteMedia = async (taskId: string, mediaId: string) => {
+    const confirmed = window.confirm("Delete this photo? This cannot be undone.");
+    if (!confirmed) {
+      return;
+    }
+
+    const deleted = await deleteTaskMedia(taskId, mediaId);
+    if (deleted && viewerMedia?.mediaId === mediaId) {
+      setViewerMedia(null);
+    }
+  };
+
   const renderMediaPreview = (
     media: TaskMediaItem,
     taskId: string,
@@ -281,6 +293,38 @@ function PhotosPageContent() {
     );
   };
 
+  const renderMediaCard = (
+    media: TaskMediaItem,
+    taskId: string,
+    onClick?: () => void
+  ) => {
+    return (
+      <div className="space-y-2">
+        <div className="relative">
+          {renderMediaPreview(media, taskId, onClick)}
+          {canEdit && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="icon"
+              className="absolute right-2 top-2 h-8 w-8"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleDeleteMedia(taskId, media.id);
+              }}
+              aria-label={`Delete ${media.label}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+        <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+          <span>{media.label}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {!selectedStage ? (
@@ -302,6 +346,14 @@ function PhotosPageContent() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {visibleTimelineItems.map((item) => (
+                (() => {
+                  const stagePhotoCount = tasks
+                    .filter((task) => task.timelineStageId === item.id)
+                    .reduce((total, task) => {
+                      return total + taskMedia.filter((media) => media.taskId === task.id).length;
+                    }, 0);
+
+                  return (
                 <Link
                   key={item.id}
                   href={`/photos?stage=${item.id}`}
@@ -322,7 +374,12 @@ function PhotosPageContent() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{item.date}</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    {stagePhotoCount} photo{stagePhotoCount === 1 ? "" : "s"}
+                  </p>
                 </Link>
+                  );
+                })()
               ))}
             </div>
           )}
@@ -474,15 +531,12 @@ function PhotosPageContent() {
                       group.other.length > 0 && (
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                           {group.other.map((media, index) => (
-                            <div key={media.id} className="space-y-2">
-                              {renderMediaPreview(
+                            <div key={media.id}>
+                              {renderMediaCard(
                                 media,
                                 activeTask?.id || "",
                                 () => openMediaViewer(activeTask?.id || "", group.other, index)
                               )}
-                              <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                <span>{media.label}</span>
-                              </div>
                             </div>
                           ))}
                         </div>
@@ -497,15 +551,12 @@ function PhotosPageContent() {
                           {group.before.length > 0 ? (
                             <div className="space-y-3">
                               {group.before.map((media, index) => (
-                                <div key={media.id} className="space-y-2">
-                                  {renderMediaPreview(
+                                <div key={media.id}>
+                                  {renderMediaCard(
                                     media,
                                     activeTask?.id || "",
                                     () => openMediaViewer(activeTask?.id || "", group.before, index)
                                   )}
-                                  <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                    <span>{media.label}</span>
-                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -522,15 +573,12 @@ function PhotosPageContent() {
                           {group.after.length > 0 ? (
                             <div className="space-y-3">
                               {group.after.map((media, index) => (
-                                <div key={media.id} className="space-y-2">
-                                  {renderMediaPreview(
+                                <div key={media.id}>
+                                  {renderMediaCard(
                                     media,
                                     activeTask?.id || "",
                                     () => openMediaViewer(activeTask?.id || "", group.after, index)
                                   )}
-                                  <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                                    <span>{media.label}</span>
-                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -544,15 +592,12 @@ function PhotosPageContent() {
                     {group.other.length > 0 && group.before.length + group.after.length > 0 && (
                       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {group.other.map((media, index) => (
-                          <div key={media.id} className="space-y-2">
-                            {renderMediaPreview(
+                          <div key={media.id}>
+                            {renderMediaCard(
                               media,
                               activeTask?.id || "",
                               () => openMediaViewer(activeTask?.id || "", group.other, index)
                             )}
-                            <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
-                              <span>{media.label}</span>
-                            </div>
                           </div>
                         ))}
                       </div>

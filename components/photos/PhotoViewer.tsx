@@ -58,10 +58,24 @@ export function PhotoViewer({
   const [showComments, setShowComments] = React.useState(false);
   const [commentMessage, setCommentMessage] = React.useState("");
   const [isPostingComment, setIsPostingComment] = React.useState(false);
+  const [panStart, setPanStart] = React.useState({ x: 0, y: 0 });
+  const [panOffset, setPanOffset] = React.useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = React.useState(false);
   const proxySrc = React.useMemo(
     () => `/api/media-proxy?url=${encodeURIComponent(src)}`,
     [src]
   );
+
+  // Generate circle cursor for eraser
+  const eraserCursorSvg = React.useMemo(() => {
+    const size = Math.min(Math.max(penSize * 3, 20), 50);
+    const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 1}" fill="none" stroke="white" stroke-width="2"/>
+      <circle cx="${size / 2}" cy="${size / 2}" r="2" fill="white"/>
+    </svg>`;
+    const encoded = btoa(svg);
+    return `url('data:image/svg+xml;base64,${encoded}') ${size / 2} ${size / 2}, auto`;
+  }, [penSize]);
 
   React.useEffect(() => {
     setMounted(true);
@@ -151,7 +165,8 @@ export function PhotoViewer({
       ctx.lineTo(x, y);
       ctx.stroke();
     } else if (drawMode === "eraser") {
-      ctx.clearRect(x - penSize / 2, y - penSize / 2, penSize, penSize);
+      const eraserSize = penSize * 3;
+      ctx.clearRect(x - eraserSize / 2, y - eraserSize / 2, eraserSize, eraserSize);
     } else {
       // Redraw original for preview
       if (previewCanvas) {
@@ -324,10 +339,11 @@ export function PhotoViewer({
       >
         {/* Header */}
         <div 
-          className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-neutral-700"
+          className="relative flex items-center justify-center p-4 border-b border-neutral-700"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="min-w-0">
+          {/* Centered Title and Pagination */}
+          <div className="text-center min-w-0">
             <h2 className="truncate text-white font-semibold text-lg">{alt}</h2>
             {hasGroupedMedia && (
               <p className="text-xs text-neutral-400">
@@ -336,7 +352,8 @@ export function PhotoViewer({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Left Controls */}
+          <div className="absolute left-4 flex items-center gap-2">
             {hasGroupedMedia && (
               <>
                 <Button variant="outline" size="icon" onClick={handlePrevMedia} aria-label="Previous photo">
@@ -347,7 +364,10 @@ export function PhotoViewer({
                 </Button>
               </>
             )}
+          </div>
 
+          {/* Right Controls */}
+          <div className="absolute right-4 flex items-center gap-2">
             {canComment && (
               <Button
                 variant={showComments ? "default" : "outline"}
@@ -420,7 +440,11 @@ export function PhotoViewer({
           {imageError && (
             <div className="text-sm text-red-400">{imageError}</div>
           )}
-          <div className="relative inline-block max-w-full" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
+          <div className="relative inline-block max-w-full" style={{ 
+            transform: `scale(${zoom}) translate(${panOffset.x}px, ${panOffset.y}px)`, 
+            transformOrigin: 'center',
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+          }}>
             <img
               ref={imageRef}
               src={proxySrc}
@@ -445,24 +469,47 @@ export function PhotoViewer({
               ref={canvasRef}
               onMouseDown={(e) => {
                 e.stopPropagation();
-                handleMouseDown(e as any);
+                if (drawMode === "none") {
+                  // View mode - allow panning by dragging
+                  setIsDragging(true);
+                  setPanStart({ x: e.clientX, y: e.clientY });
+                } else {
+                  handleMouseDown(e as any);
+                }
               }}
               onMouseMove={(e) => {
                 e.stopPropagation();
-                handleMouseMove(e as any);
+                if (drawMode === "none" && isDragging) {
+                  // Pan while dragging in view mode
+                  const deltaX = e.clientX - panStart.x;
+                  const deltaY = e.clientY - panStart.y;
+                  setPanOffset({ x: panOffset.x + deltaX, y: panOffset.y + deltaY });
+                  setPanStart({ x: e.clientX, y: e.clientY });
+                } else if (drawMode !== "none") {
+                  handleMouseMove(e as any);
+                }
               }}
               onMouseUp={(e) => {
                 e.stopPropagation();
-                handleMouseUp();
+                if (drawMode === "none") {
+                  setIsDragging(false);
+                } else {
+                  handleMouseUp();
+                }
               }}
               onMouseLeave={(e) => {
                 e.stopPropagation();
-                handleMouseUp();
+                if (drawMode === "none") {
+                  setIsDragging(false);
+                } else {
+                  handleMouseUp();
+                }
               }}
               onClick={(e) => e.stopPropagation()}
-              className={`absolute left-0 top-0 h-full w-full ${
-                drawMode !== "none" ? "cursor-crosshair" : "cursor-default"
-              } ${isImageLoaded ? "block" : "hidden"}`}
+              style={{
+                cursor: drawMode === "eraser" ? eraserCursorSvg : drawMode !== "none" ? 'crosshair' : 'grab'
+              }}
+              className={`absolute left-0 top-0 h-full w-full ${isImageLoaded ? "block" : "hidden"}`}
             />
           </div>
         </div>
@@ -478,7 +525,10 @@ export function PhotoViewer({
             {/* Draw Mode Toggle */}
             <Button
               variant={drawMode === "none" ? "default" : "outline"}
-              onClick={() => setDrawMode("none")}
+              onClick={() => {
+                setDrawMode("none");
+                setPanOffset({ x: 0, y: 0 });
+              }}
               size="sm"
               className="text-xs"
             >

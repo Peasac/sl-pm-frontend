@@ -60,7 +60,7 @@ export default function OverviewPage() {
       <StatsCards />
       <ProjectMembers />
       <ProjectClients />
-
+{/* 
       <div className="grid gap-4 md:grid-cols-2 reveal-up reveal-delay-1">
         {quickLinks.map((link) => (
           <Card key={link.href} className="bg-card/80">
@@ -75,7 +75,7 @@ export default function OverviewPage() {
             </CardContent>
           </Card>
         ))}
-      </div>
+      </div> */}
 
 
 
@@ -87,7 +87,7 @@ export default function OverviewPage() {
               <p className="text-xs text-muted-foreground">Key milestones across the program</p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">Vertical</Badge>
+              {/* <Badge variant="outline">Vertical</Badge> */}
               {canEdit && (
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/projects/${project?.id}/edit`}>Edit timeline</Link>

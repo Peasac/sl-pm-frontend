@@ -183,11 +183,11 @@ export default function LoginPage() {
           <div className="relative w-full max-w-md rounded-3xl border border-white/10 bg-white/3 p-7 shadow-[0_14px_38px_rgba(2,10,25,0.24)] backdrop-blur-2xl sm:p-8">
             {/* Heading */}
             <div className="mb-8">
-              <h2 className="text-[31px] font-bold leading-tight tracking-tight text-white">
+              <h2 className="text-[36px] font-bold leading-tight  tracking-tight text-white">
                 Sign In
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-200/90">
-                Sign in to access your dashboard with your account credentials.
+                Sign in to access your dashboard 
               </p>
             </div>
 
@@ -274,11 +274,11 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    Sign in to Dashboard
-                    <ArrowRight
+                    Sign in
+                    {/* <ArrowRight
                       size={15}
                       className="transition-transform duration-200 group-hover:translate-x-0.5"
-                    />
+                    /> */}
                   </>
                 )}
               </Button>

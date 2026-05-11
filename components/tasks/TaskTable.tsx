@@ -16,6 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -64,7 +65,7 @@ function PipelineIndicator({ steps, currentStep }: { steps: string[]; currentSte
 }
 
 export function TaskTable() {
-  const { tasks, addTask, updateTaskStatus, updateTimelineStatus, canEdit, canMarkDone, role, memberName, project } = useAppContext();
+  const { tasks, deleteTask, addTask, updateTaskStatus, updateTimelineStatus, canEdit, canMarkDone, role, memberName, project } = useAppContext();
   const [open, setOpen] = React.useState(false);
   const [finishOpen, setFinishOpen] = React.useState(false);
   const timelineItems = project?.timelineItems ?? [];
@@ -152,6 +153,15 @@ export function TaskTable() {
     setFinishOpen(false);
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    const confirmed = window.confirm("Delete this task? This will also remove its photos.");
+    if (!confirmed) {
+      return;
+    }
+
+    await deleteTask(taskId);
+  };
+
   // For member role, only show timeline stages that have tasks assigned to them
   const visibleTimelineItems =
     role === "member" && memberName
@@ -183,6 +193,12 @@ export function TaskTable() {
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {visibleTimelineItems.map((item) => (
+                (() => {
+                  const stageTaskCount = tasks.filter(
+                    (task) => task.timelineStageId === item.id
+                  ).length;
+
+                  return (
                 <Link
                   key={item.id}
                   href={`/tasks?stage=${item.id}`}
@@ -203,7 +219,12 @@ export function TaskTable() {
                     </Badge>
                   </div>
                   <p className="mt-2 text-xs text-muted-foreground">{item.date}</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">
+                    {stageTaskCount} task{stageTaskCount === 1 ? "" : "s"}
+                  </p>
                 </Link>
+                  );
+                })()
               ))}
             </div>
           )}
@@ -335,6 +356,7 @@ export function TaskTable() {
                     <TableHead>Updated</TableHead>
                     <TableHead>Photos</TableHead>
                     <TableHead>Comments</TableHead>
+                    {canEdit && <TableHead className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -393,6 +415,18 @@ export function TaskTable() {
                           </DialogContent>
                         </Dialog>
                       </TableCell>
+                      {canEdit && (
+                        <TableCell className="text-right">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteTask(task.id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

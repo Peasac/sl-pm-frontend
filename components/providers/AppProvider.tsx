@@ -131,6 +131,7 @@ type AppContextValue = {
   removeStarlinkMember: (email: string) => void;
   addTask: (task: Omit<Task, "id" | "comments" | "updatedAt">) => void;
   updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  deleteTask: (taskId: string) => Promise<boolean>;
   updateTimelineStatus: (timelineId: string, status: TimelineStatus) => void;
   addComment: (taskId: string, comment: Omit<TaskComment, "id" | "createdAt">) => void;
   addContact: (contact: Omit<Contact, "id">) => void;
@@ -140,6 +141,7 @@ type AppContextValue = {
     label: string;
     file: File;
   }) => Promise<void>;
+  deleteTaskMedia: (taskId: string, mediaId: string) => Promise<boolean>;
   addTaskMediaComment: (
     taskId: string,
     mediaId: string,
@@ -1557,6 +1559,67 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [API_BASE, activeProjectId, updateProject]);
 
+  const deleteTask = React.useCallback(async (taskId: string) => {
+    if (!activeProjectId) {
+      return false;
+    }
+
+    const taskToDelete = activeProject?.tasks.find((task) => task.id === taskId);
+    if (!taskToDelete) {
+      return false;
+    }
+
+    updateProject(activeProjectId, (project) => {
+      const remainingTasks = project.tasks.filter((task) => task.id !== taskId);
+      const remainingTaskMedia = project.taskMedia.filter((media) => media.taskId !== taskId);
+      const stageTasks = remainingTasks.filter((task) => task.timelineStageId === taskToDelete.timelineStageId);
+      const allDone = stageTasks.length > 0 && stageTasks.every((task) => task.status === "Completed");
+      const anyActive = stageTasks.some((task) => task.status === "In Progress" || task.status === "Blocked");
+      const nextStatus = stageTasks.length === 0 ? "Pending" : allDone ? "Completed" : anyActive ? "In Progress" : "Pending";
+
+      return {
+        ...project,
+        tasks: remainingTasks,
+        taskMedia: remainingTaskMedia,
+        timelineItems: project.timelineItems.map((item) => {
+          if (item.id !== taskToDelete.timelineStageId || item.status === nextStatus) {
+            return item;
+          }
+
+          const nextDate = item.status === "Pending" && nextStatus === "In Progress"
+            ? new Date().toISOString().split("T")[0]
+            : item.date;
+
+          const token = window.localStorage.getItem("slpm:token");
+          if (token && API_BASE) {
+            fetch(`${API_BASE}/projects/${activeProjectId}/timeline/${item.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ status: nextStatus, date: nextDate }),
+            }).catch((error) => console.error("Failed to update timeline status after task delete", error));
+          }
+
+          return { ...item, status: nextStatus, date: nextDate };
+        }),
+      };
+    });
+
+    try {
+      const token = window.localStorage.getItem("slpm:token");
+      if (token && API_BASE) {
+        const response = await fetch(`${API_BASE}/projects/${activeProjectId}/tasks/${taskId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.ok;
+      }
+      return true;
+    } catch (error) {
+      console.error("Failed to delete task in backend:", error);
+      return false;
+    }
+  }, [API_BASE, activeProject, activeProjectId, updateProject]);
+
   const addComment = React.useCallback(
     async (taskId: string, comment: Omit<TaskComment, "id" | "createdAt">) => {
       if (!activeProjectId) {
@@ -1748,6 +1811,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [API_BASE, activeProjectId, updateProject]);
 
+  const deleteTaskMedia = React.useCallback(async (taskId: string, mediaId: string) => {
+    if (!activeProjectId) {
+      return false;
+    }
+
+    updateProject(activeProjectId, (project) => ({
+      ...project,
+      taskMedia: project.taskMedia.filter((item) => item.id !== mediaId),
+    }));
+
+    try {
+      const token = window.localStorage.getItem("slpm:token");
+      if (token && API_BASE) {
+        const response = await fetch(`${API_BASE}/projects/${activeProjectId}/tasks/${taskId}/media/${mediaId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        return response.ok;
+      }
+      return true;
+    } catch (error) {
+      console.error("Failed to delete media in backend:", error);
+      return false;
+    }
+  }, [API_BASE, activeProjectId, updateProject]);
+
   const addTaskMediaComment = React.useCallback(
     async (
       taskId: string,
@@ -1892,10 +1981,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeStarlinkMember,
       addTask,
       updateTaskStatus,
+      deleteTask,
       updateTimelineStatus,
       addComment,
       addContact,
       addTaskMedia,
+      deleteTaskMedia,
       addTaskMediaComment,
       addProjectMember,
       removeProjectMember,
@@ -1937,10 +2028,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeStarlinkMember,
       addTask,
       updateTaskStatus,
+      deleteTask,
       updateTimelineStatus,
       addComment,
       addContact,
       addTaskMedia,
+      deleteTaskMedia,
       addProjectMember,
       removeProjectMember,
       updateProjectDetails,

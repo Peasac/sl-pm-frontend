@@ -21,7 +21,7 @@ export function Sidebar() {
             alt="Starlink"
             width={140}
             height={31}
-            className="h-[31px] w-auto"
+            className="h-[35px] w-auto"
             priority
           />
         </div>

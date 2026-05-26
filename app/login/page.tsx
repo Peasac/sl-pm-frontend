@@ -134,7 +134,7 @@ export default function LoginPage() {
             <div className="relative z-10 flex items-center gap-3">
               <Image
                           src="/starlink.svg"
-                          alt="Starlink"
+                          alt="Starlinkksa"
                           width={140}
                           height={31}
                           className="h-[50px] w-auto"
@@ -297,7 +297,7 @@ export default function LoginPage() {
             </div> */}
 
             <p className="mt-9 text-center text-[11px] text-slate-300/85">
-              © 2026 StarLink. All rights reserved.
+              © 2026 StarLinkKsa. All rights reserved.
             </p>
           </div>
         </div>
